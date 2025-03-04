@@ -11,7 +11,7 @@
 #' }
 #' Deconvolution functions:
 #' \itemize{
-#'  \item spatialdecon runs the core deconvolution function
+#'  \item bulkdecon runs the core deconvolution function
 #'  \item reverseDecon runs a transposed/reverse deconvolution problem, fitting
 #'  the data as a function of cell abundance estimates.
 #'   Used to measure genes' dependency on cell mixing and to calculate gene
@@ -25,5 +25,5 @@
 #'   estimated from the safeTME cell profile matrix
 #' }
 #' @docType package
-#' @name BulkDecon-package
+#' @name BulkDecon
 NULL

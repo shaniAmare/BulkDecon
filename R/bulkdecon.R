@@ -1,4 +1,4 @@
-spatialdecon <- function(norm, 
+bulkdecon <- function(norm, 
                          bg, 
                          X = NULL,
                          raw = NULL,
@@ -45,7 +45,7 @@ spatialdecon <- function(norm,
     # prep training matrix:
     if (length(X) == 0) {
         utils::data("safeTME", envir = environment())
-        X <- BulkDecon::safeTME
+        X <- SpatialDecon::safeTME
     }
     sharedgenes <- intersect(rownames(norm), rownames(X))
     if (length(sharedgenes) == 0) {
