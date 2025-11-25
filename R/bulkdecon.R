@@ -147,7 +147,7 @@ bulkdecon <- function(norm,
     # prep training matrix:
     if (length(X) == 0) {
         utils::data("safeTME", envir = environment())
-        X <- BulkDecon::safeTME
+        X <- SpatialDecon::safeTME
     }
     sharedgenes <- intersect(rownames(norm), rownames(X))
     if (length(sharedgenes) == 0) {
@@ -165,7 +165,7 @@ bulkdecon <- function(norm,
     # wts = replace(norm, TRUE, 1)
     if (length(raw) > 0) {
         weight.by.TIL.resid.sd <-
-            length(intersect(colnames(X), colnames(BulkDecon::safeTME))) > 10
+            length(intersect(colnames(X), colnames(SpatialDecon::safeTME))) > 10
         wts <- deriveWeights(norm,
                              raw = raw, error.model = "dsp",
                              weight.by.TIL.resid.sd = weight.by.TIL.resid.sd
