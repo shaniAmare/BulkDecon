@@ -5,7 +5,7 @@ An R package to conduct deconvolution on bulk RNA-Seq data sets based on custom 
 <h3> -- Current progress -- </h3>
 <ul>
 <li>Basic structure formed </li>
-<li>Underlying concept of SpatialDecon packages was implemented2</li>
+<li>Underlying concept of SpatialDecon packages was implemented</li>
 <li>First commit</li>
 </ul>
 
