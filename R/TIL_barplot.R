@@ -1,10 +1,49 @@
-
+#' Barplot of abundance estimates
+#'
+#' Draw barplot of the "betas" from a decon fit
+#'
+#' @param mat Matrix of cell proportions or abundances, in the same dimensions
+#' output by spatialdecon
+#'  (cells in rows, observations in columns). User is free to re-order
+#'  columns/observations in
+#'  whatever order is best for display.
+#' @param draw_legend Logical. If TRUE, the function draws a legend in a new
+#' plot frame.
+#' @param main Title for barplot
+#' @param col Vector of colors for cell types. Defaults to pre-set colors for
+#' the safeTME cell types.
+#' @param ... Arguments passed to barplot()
+#' @return Draws a barplot.
+#' @examples
+#' data(mini_geomx_dataset)
+#' data(safeTME)
+#' # estimate background:
+#' mini_geomx_dataset$bg <- derive_GeoMx_background(
+#'   norm = mini_geomx_dataset$normalized,
+#'   probepool = rep(1, nrow(mini_geomx_dataset$normalized)),
+#'   negnames = "NegProbe"
+#' )
+#' # run basic decon:
+#' res0 <- bulkdecon(
+#'   norm = mini_geomx_dataset$normalized,
+#'   bg = mini_geomx_dataset$bg,
+#'   X = safeTME
+#' )
+#' # run barplot:
+#' TIL_barplot(mat = res0$beta)
+#' # run barplot and draw a color legend
+#' TIL_barplot(mat = res0$beta, draw_legend = TRUE)
+#' @import graphics
+#' @importFrom graphics frame legend barplot
+#' @importFrom grDevices colors
+#' @importFrom utils data
+#' @export
 TIL_barplot <- function(mat, draw_legend = FALSE, main = "", col = NULL, ...) {
-    
-    
+
+
     # infer colors:
     if (length(col) == 0) {
-        
+
         # use safeTME colors if the right cells are present:
         #utils::data("cellcols", envir = environment())
         # if (all(is.element(rownames(mat), names(SpatialDecon::cellcols)))) {
@@ -22,16 +61,16 @@ TIL_barplot <- function(mat, draw_legend = FALSE, main = "", col = NULL, ...) {
             names(col) <- rownames(mat)
         # }
     }
-    
+
     usecells <- rownames(mat)
-    
+
     # draw barplot:
     graphics::barplot(mat[usecells, ],
                       cex.lab = 1.5,
                       col = col, border = NA,
                       las = 2, main = main, ...
     )
-    
+
     # draw a legend:
     if (draw_legend) {
         graphics::frame()
