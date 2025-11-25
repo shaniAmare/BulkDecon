@@ -8,7 +8,7 @@ TIL_barplot(mat, draw_legend = FALSE, main = "", col = NULL, ...)
 }
 \arguments{
 \item{mat}{Matrix of cell proportions or abundances, in the same dimensions
-output by spatialdecon
+output by bulkdecon
 (cells in rows, observations in columns). User is free to re-order
 columns/observations in
 whatever order is best for display.}

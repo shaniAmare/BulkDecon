@@ -4,7 +4,7 @@ florets <- function(x, y, b, col = NULL, legendwindow = FALSE,
                     bty = "n", xaxt = "n", yaxt = "n", xlab = "", ylab = "",
                     ...) {
     # utils::data("cellcols", envir = environment())
-    
+
     if (rescale.by.sqrt) {
         b <- sqrt(b)
     }
@@ -17,11 +17,11 @@ florets <- function(x, y, b, col = NULL, legendwindow = FALSE,
     }
     # choose colors if not given:
     # if ((length(col) == 0) &
-    #     all(is.element(rownames(b), names(SpatialDecon::cellcols)))) {
-    #     col <- SpatialDecon::cellcols[rownames(b)]
+    #     all(is.element(rownames(b), names(BulkDecon::cellcols)))) {
+    #     col <- BulkDecon::cellcols[rownames(b)]
     # }
     # if ((length(col) == 0) &
-    #     !all(is.element(rownames(b), names(SpatialDecon::cellcols)))) {
+    #     !all(is.element(rownames(b), names(BulkDecon::cellcols)))) {
         manycols <- c(
           "#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3", "#FDB462",
           "#B3DE69", "#FCCDE5", "#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C",
@@ -40,14 +40,14 @@ florets <- function(x, y, b, col = NULL, legendwindow = FALSE,
     if (is.vector(col)) {
         col <- matrix(col, nrow = nrow(b), ncol = ncol(b))
     }
-    
+
     # get radians:
     angles <- seq(0, 2 * pi, length.out = nrow(b) + 1)
-    
+
     # scale b based on the range of x and y:
     maxrange <- max(diff(range(x, na.rm = TRUE)), diff(range(y, na.rm = TRUE)))
     b <- b * maxrange / mean(b, na.rm = TRUE) * 0.007 * cex
-    
+
     # draw plot:
     if (!add) {
         graphics::plot(x, y,
@@ -55,7 +55,7 @@ florets <- function(x, y, b, col = NULL, legendwindow = FALSE,
                        xlab = xlab, ylab = ylab, ...
         )
     }
-    
+
     # draw florets:
     if (nrow(b) > 1) {
         for (i in seq_len(length(x))) {
@@ -70,7 +70,7 @@ florets <- function(x, y, b, col = NULL, legendwindow = FALSE,
             }
         }
     }
-    
+
     # if just one point, draw a full circle:
     if (nrow(b) == 1) {
         for (i in seq_len(length(x))) {
@@ -85,7 +85,7 @@ florets <- function(x, y, b, col = NULL, legendwindow = FALSE,
             }
         }
     }
-    
+
     # draw a legend:
     if (legendwindow) {
         graphics::plot(0, 0,

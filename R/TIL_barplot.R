@@ -3,7 +3,7 @@
 #' Draw barplot of the "betas" from a decon fit
 #'
 #' @param mat Matrix of cell proportions or abundances, in the same dimensions
-#' output by spatialdecon
+#' output by bulkdecon
 #'  (cells in rows, observations in columns). User is free to re-order
 #'  columns/observations in
 #'  whatever order is best for display.
@@ -46,8 +46,8 @@ TIL_barplot <- function(mat, draw_legend = FALSE, main = "", col = NULL, ...) {
 
         # use safeTME colors if the right cells are present:
         #utils::data("cellcols", envir = environment())
-        # if (all(is.element(rownames(mat), names(SpatialDecon::cellcols)))) {
-        #     col <- SpatialDecon::cellcols[rownames(mat)]
+        # if (all(is.element(rownames(mat), names(BulkDecon::cellcols)))) {
+        #     col <- BulkDecon::cellcols[rownames(mat)]
         # }
         # else {
             manycols <- c(

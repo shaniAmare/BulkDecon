@@ -84,15 +84,14 @@
 #'   negnames = "NegProbe"
 #' )
 #' # run basic decon:
-#' res0 <- spatialdecon(
-#'   norm = mini_geomx_dataset$normalized,
-#'   bg = mini_geomx_dataset$bg,
-#'   X = safeTME
-#' )
+#' res0 <- runbulkdecon(norm_elt   = nc,
+#'         raw_elt     = rc,
+#'         X           = custom_mtx,
+#'         align_genes = TRUE)
 #' # run decon with bells and whistles:
-#' res <- spatialdecon(
-#'   norm = mini_geomx_dataset$normalized,
-#'   bg = mini_geomx_dataset$bg,
+#' res <- bulkdecon(
+#'   norm = nc,
+#'   bg = rc,
 #'   X = safeTME,
 #'   cellmerges = safeTME.matches,
 #'   cell_counts = mini_geomx_dataset$annot$nuclei,
