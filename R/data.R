@@ -41,3 +41,32 @@
 #' @usage NULL
 #' @keywords datasets
 "mini_singleCell_dataset"
+
+#' Default colors for the cell types in the safeTME matrix
+#'
+#' A named vector of colors, giving colors for the cell types of the safeTME
+#'  matrix.
+#'
+#' @format A named vector
+"cellcols"
+
+#' Small example GeoMx data
+#'
+#' A miniature GeoMx dataset used by the spatialdecon examples.
+#'
+#' @format A list with the following elements:
+#'  \itemize{
+#'  \item normalized: normalized data matrix
+#'  \item raw: raw data matrix
+#'  \item annot: AOI annotation data frame
+#'  }
+"mini_geomx_dataset"
+
+#' Genes' biological variability in immune deconvolution from TCGA.
+#'
+#' Genes' biological SDs, as estimated from immune deconvolution from TCGA.
+#' Used to weight genes in spatialdecon.
+#'
+#' @format A named vector giving SDs of 1179 genes.
+"mean.resid.sd"
+

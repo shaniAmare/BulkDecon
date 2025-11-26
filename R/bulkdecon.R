@@ -92,14 +92,14 @@ bulkdecon <- function(norm,
                 " genes are shared between norm and X — may not be enough."))
   }
 
-  # calculate weights (if raw provided)
+  # calculate weights based on expected SD of counts
+  # wts = replace(norm, TRUE, 1)
   if (length(raw) > 0) {
-    weight.by.TIL.resid.sd <- ncol(X) > 10
-      #length(intersect(colnames(X), colnames(safeTME))) > 10
-
-    wts <- deriveWeights(
-      norm = norm,
-      raw = raw
+    weight.by.TIL.resid.sd <-
+      length(intersect(colnames(X), colnames(BulkDecon::safeTME))) > 10
+    wts <- deriveWeights(norm,
+                         raw = raw, error.model = "bulk",
+                         weight.by.TIL.resid.sd = weight.by.TIL.resid.sd
     )
   }
 
