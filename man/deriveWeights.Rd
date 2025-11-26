@@ -2,33 +2,23 @@
 % Please edit documentation in R/deriveWeights.R
 \name{deriveWeights}
 \alias{deriveWeights}
-\title{Derive per-gene weights for BulkDecon}
+\title{Derive Gene Weights from Bulk RNA-seq Data}
 \usage{
-deriveWeights(
-  norm,
-  raw = NULL,
-  error.model = "dsp",
-  weight.by.TIL.resid.sd = FALSE
-)
+deriveWeights(norm, raw = NULL, weight.by.TIL.resid.sd = FALSE)
 }
 \arguments{
-\item{norm}{Matrix of normalized expression (genes × samples).}
+\item{norm}{Matrix of normalized expression (genes × samples, log scale).}
 
-\item{raw}{Optional raw counts matrix (genes × samples).}
+\item{raw}{Optional raw count matrix (not used but retained for compatibility).}
 
-\item{error.model}{Character; currently unused except passed to
-\code{runErrorModel()} for future-proofing. Default: "dsp".}
-
-\item{weight.by.TIL.resid.sd}{Logical; if TRUE, use the built-in
-\code{mean.resid.sd} vector to model biological variability.}
+\item{weight.by.TIL.resid.sd}{Logical; if TRUE, emphasize immune-stable genes
+(currently disabled for bulk RNA-seq mode).}
 }
 \value{
-A matrix of weights of the same dimension as \code{norm}.
+A matrix of weights (genes × samples).
 }
 \description{
-Computes technical and biological variance components and returns a
-gene-by-sample weight matrix used by \code{algorithm2()} and
-\code{bulkdecon()}. If \code{raw} is provided, technical SDs are learned
-from the data. Biological SDs can optionally be estimated from
-TIL residual variances included in the package.
+Computes per-gene weights for deconvolution by estimating variance across
+samples in normalized expression space. More stable genes receive higher
+weight during regression.
 }

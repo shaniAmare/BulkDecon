@@ -98,10 +98,8 @@ bulkdecon <- function(norm,
       #length(intersect(colnames(X), colnames(safeTME))) > 10
 
     wts <- deriveWeights(
-      norm,
-      raw = raw,
-      error.model = "dsp",
-      weight.by.TIL.resid.sd = weight.by.TIL.resid.sd
+      norm = norm,
+      raw = raw
     )
   }
 
