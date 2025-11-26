@@ -81,7 +81,7 @@ bulkdecon <- function(norm,
 
   # load bundled safeTME if X not supplied
   if (length(X) == 0) {
-    utils::data("safeTME", package = "BulkDecon", envir = environment())
+    utils::data("safeTME", package = "BulkDecon-package", envir = environment())
     X <- safeTME
   }
 
