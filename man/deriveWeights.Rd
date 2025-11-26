@@ -4,15 +4,14 @@
 \alias{deriveWeights}
 \title{Derive Gene Weights from Bulk RNA-seq Data}
 \usage{
-deriveWeights(norm, raw = NULL, weight.by.TIL.resid.sd = FALSE)
+deriveWeights(norm, raw = NULL, error.model = "quantile")
 }
 \arguments{
-\item{norm}{Matrix of normalized expression (genes × samples, log scale).}
+\item{norm}{Normalized expression matrix (genes x samples)}
 
-\item{raw}{Optional raw count matrix (not used but retained for compatibility).}
+\item{raw}{Raw count matrix (genes x samples): optional}
 
-\item{weight.by.TIL.resid.sd}{Logical; if TRUE, emphasize immune-stable genes
-(currently disabled for bulk RNA-seq mode).}
+\item{error.model}{Variance model: "quantile" or "loglinear"}
 }
 \value{
 A matrix of weights (genes × samples).

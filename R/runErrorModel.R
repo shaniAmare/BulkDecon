@@ -11,7 +11,7 @@
 #' @return A numeric vector or matrix of estimated standard deviations.
 #'
 #' @export
-runErrorModel <- function(counts, method = "quantile") {
+runErrorModel <- function(counts, method) {
 
   if (!is.numeric(counts)) stop("counts must be numeric.")
   method <- tolower(method)
@@ -37,6 +37,11 @@ runErrorModel <- function(counts, method = "quantile") {
     sds[quant < 0.05] <- 0.5
     sds[quant < 0.01] <- 1.0
 
+    if (is.vector(sds)) {
+      sds <- matrix(sds, nrow = length(sds), ncol = ncol(counts),
+                    dimnames = dimnames(counts))
+    }
+
     return(sds)
   }
 
@@ -50,6 +55,11 @@ runErrorModel <- function(counts, method = "quantile") {
     # sd shrinks with log abundance
     sds <- 1.5 - 0.2 * logc
     sds[sds < 0.1] <- 0.1
+
+    if (is.vector(sds)) {
+      sds <- matrix(sds, nrow = length(sds), ncol = ncol(counts),
+                    dimnames = dimnames(counts))
+    }
 
     return(sds)
   }

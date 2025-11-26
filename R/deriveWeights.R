@@ -4,49 +4,58 @@
 #' samples in normalized expression space. More stable genes receive higher
 #' weight during regression.
 #'
-#' @param norm Matrix of normalized expression (genes × samples, log scale).
-#' @param raw Optional raw count matrix (not used but retained for compatibility).
-#' @param weight.by.TIL.resid.sd Logical; if TRUE, emphasize immune-stable genes
-#'   (currently disabled for bulk RNA-seq mode).
+#' @param norm Normalized expression matrix (genes x samples)
+#' @param raw Raw count matrix (genes x samples): optional
+#' @param error.model Variance model: "quantile" or "loglinear"
 #'
 #' @return A matrix of weights (genes × samples).
 #'
 #' @export
-deriveWeights <- function(norm,
-                          raw = NULL,
-                          weight.by.TIL.resid.sd = FALSE) {
+deriveWeights <- function(norm, raw = NULL, error.model = "quantile") {
+  # ----------------------------
+  # Input checks
+  # ----------------------------
+  if (is.null(raw)) {
+    stop("Raw counts must be provided for weight estimation.")
+  }
 
-  if (!is.matrix(norm))
-    stop("`norm` must be a matrix (genes × samples).")
+  if (!is.matrix(raw)) {
+    stop("raw must be a matrix (genes x samples).")
+  }
+
+  if (!identical(dim(norm), dim(raw))) {
+    stop("norm and raw must have identical dimensions.")
+  }
+
+  # ----------------------------
+  # Estimate technical variance
+  # ----------------------------
 
   message("Estimating gene weights from bulk RNA-seq variance...")
 
-  ## -------------------------------------------------
-  ## 1. Estimate gene-wise variance (on log scale)
-  ## -------------------------------------------------
-  gene_sd <- apply(norm, 1, sd, na.rm = TRUE)
-
-  ## Guard against degenerate variance
-  gene_sd[gene_sd == 0 | is.na(gene_sd)] <- median(gene_sd, na.rm = TRUE)
-
-  ## -------------------------------------------------
-  ## 2. Convert variance → weights
-  ## -------------------------------------------------
-  ## Lower variance → higher weight
-  gene_wts <- 1 / gene_sd
-
-  ## Normalize weights (mean = 1)
-  gene_wts <- gene_wts / mean(gene_wts, na.rm = TRUE)
-
-  ## -------------------------------------------------
-  ## 3. Expand to genes × samples matrix
-  ## -------------------------------------------------
-  wts <- matrix(
-    gene_wts,
-    nrow = length(gene_wts),
-    ncol = ncol(norm),
-    dimnames = dimnames(norm)
+  sds.tech <- runErrorModel(
+    counts = raw,
+    method = error.model
   )
+
+  # ----------------------------
+  # Stabilise SDs
+  # ----------------------------
+
+  sds.tech[!is.finite(sds.tech)] <- median(sds.tech, na.rm = TRUE)
+  sds.tech[sds.tech < 0.05] <- 0.05
+  sds.tech[sds.tech > 10]   <- 10
+
+  # ----------------------------
+  # Compute weights
+  # ----------------------------
+
+  wts <- 1 / sds.tech
+
+  # Guard against zero / infinite weights
+  wts[!is.finite(wts)] <- min(wts[is.finite(wts)], na.rm = TRUE)
+
+  dimnames(wts) <- dimnames(norm)
 
   return(wts)
 }
