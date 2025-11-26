@@ -4,33 +4,41 @@
 \alias{calc_background}
 \title{Calculate Background Expression from Stable Background Genes}
 \usage{
-calc_background(exprs_mat, norm)
+calc_background(raw, norm)
 }
 \arguments{
-\item{exprs_mat}{Numeric matrix of raw or normalized expression values.
+\item{raw}{Numeric matrix of \emph{raw} bulk expression values.
 Genes in rows, samples in columns.}
 
-\item{norm}{Numeric matrix of normalized expression values with the same
-dimensions and gene names as \code{exprs_mat}.}
+\item{norm}{Numeric matrix of \emph{normalized} expression values
+with the same dimensions and gene names as \code{raw}.}
 }
 \value{
-A numeric matrix of background estimates with the same dimensions as
-\code{exprs_mat}.
+A numeric matrix of background expression estimates with the same
+dimensions and row/column names as \code{raw}.
 }
 \description{
 This function identifies background-stable genes using \code{calc_bgindex()},
 selects high-stability genes, and uses them to estimate expected background
 expression levels in bulk RNA-seq data. The resulting background matrix has
-the same dimensions as \code{exprs_mat}.
+the same dimensions as \code{raw}.
 }
 \details{
 Background-stable genes are defined using the \code{bgIdx} score produced by
 \code{calc_bgindex()}. Genes ranked above the 80th percentile of the stability
 index are considered background-like and used to compute per-sample background
-using column means (on normalized data).
+levels using column means of the normalized expression matrix (\code{norm}).
+
+These estimated background levels are then broadcast across all rows (genes)
+to form a background matrix of the same shape as \code{raw}.
 }
 \examples{
 \dontrun{
-bg <- calc_background(exprs_mat = bulk_counts, norm = normalized_counts)
+bg <- calc_background(raw = bulk_counts,
+                      norm = normalized_counts)
 }
+
+}
+\seealso{
+\code{calc_bgindex()} for computing background gene stability indices.
 }
