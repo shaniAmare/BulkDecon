@@ -22,10 +22,8 @@ It extends and adapts the core logic from the SpatialDecon framework for more ge
 
 <h2>📦 Installation</h2>
 
-<p><em>(Will be updated once the final GitHub path is known)</em></p>
-
 <pre><code># install.packages("devtools")
-devtools::install_github("yourusername/BulkDecon")
+devtools::install_github("shaniAmare/BulkDecon", force = TRUE)
 </code></pre>
 
 <hr>
