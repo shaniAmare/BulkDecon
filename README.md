@@ -16,7 +16,7 @@ It extends and adapts the core logic from the SpatialDecon framework for more ge
   <li>✔️ First working commit</li>
 </ul>
 
-<p>If you are interested in testing or contributing, please contact <strong>XX</strong>.</p>
+<p>If you are interested in testing or contributing, please contact <strong>Shani Amarasinghe</strong> or raise a Pull Request for any issues.</p>
 
 <hr>
 
