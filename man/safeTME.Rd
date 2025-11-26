@@ -3,14 +3,13 @@
 \docType{data}
 \name{safeTME}
 \alias{safeTME}
-\title{SafeTME matrix}
+\title{SafeTME Reference Matrix}
 \format{
-A matrix with 906 genes (rows) and 18 cell types (columns)
-}
-\usage{
-safeTME
+A numeric matrix with 906 rows (genes)
+and 18 columns (cell types).
 }
 \description{
-A matrix of expression profiles of 906 genes over 18 cell types.
+Reference expression matrix of 906 genes across 18 immune and stromal
+cell types, adapted from the SafeTME reference panel.
 }
 \keyword{datasets}

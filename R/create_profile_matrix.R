@@ -1,201 +1,203 @@
+#' Create a Cell-Type Profile Matrix from Single-Cell Expression Data
+#'
+#' This function generates a "reference profile matrix" (mean expression per
+#' cell type) from single-cell count data, analogous to reference matrices used
+#' for deconvolution methods. It supports filtering low-quality cells,
+#' normalisation, optional gene list restriction, and saving the resulting
+#' matrix to file.
+#'
+#' @param mtx A gene-by-cell matrix of raw counts (dense or sparse).
+#' @param cellAnnots A data frame containing cell annotations.
+#' @param cellTypeCol Name of the column in \code{cellAnnots} containing
+#'   cell-type labels.
+#' @param cellNameCol Name of the column in \code{cellAnnots} containing
+#'   cell barcodes / IDs.
+#' @param matrixName Base name for output file (default: "Custom").
+#' @param outDir Directory for writing output (default: current directory).
+#'   If \code{NULL}, no file is written.
+#' @param geneList Optional character vector of genes to retain.
+#' @param normalize Logical; if TRUE, performs median normalisation.
+#' @param scalingFactor Numeric scale multiplier applied to final matrix.
+#' @param minCellNum Minimum number of viable cells per cell type.
+#' @param minGenes Minimum genes expressed per cell (non-zero counts).
+#' @param discardCellTypes Logical; if TRUE, removes unknown / doublet /
+#'   filtered cell types.
+#'
+#' @details
+#' The function:
+#' \enumerate{
+#'   \item Validates input, ensuring cell IDs match matrix column names.
+#'   \item Optionally removes ambiguous cell types.
+#'   \item Optionally normalises counts by median library size.
+#'   \item For each cell type:
+#'     \item Filters low-quality cells.
+#'     \item Computes mean expression (if enough cells pass filters).
+#'   \item Filters genes expressed in at least one cell type.
+#'   \item Applies scaling and optional gene restriction.
+#'   \item Writes a CSV file if \code{outDir} is provided.
+#' }
+#'
+#' @return A numeric gene-by-celltype matrix of averaged expression.
+#' @export
 create_profile_matrix <- function(mtx, cellAnnots, cellTypeCol, cellNameCol,
-                                  matrixName = "Custom", outDir = "./", 
+                                  matrixName = "Custom", outDir = "./",
                                   geneList = NULL, normalize = FALSE,
                                   scalingFactor = 5, minCellNum = 15,
                                   minGenes = 100, discardCellTypes = FALSE) {
-    
-    # checking user input values
-    if(is.null(mtx)){
-        stop("count matrix is necessary")
-    }
-    if(!is.null(outDir)){
-        if (!dir.exists(outDir) ) {
-            stop("Output directory is not valid")
-        }
-    }
-    if (is.null(cellAnnots)){
-        stop("Cell Annotations are needed")
-    }
-    
-    if(is.null(cellTypeCol)){
-        stop("cellTypeCol must not be NULL")
-    }else if (!cellTypeCol %in% colnames(cellAnnots)){
-        stop("cellTypeCol not in cellAnnots")
-    }
-    
-    if(is.null(cellNameCol)){
-        stop("cellNameCol must not be NULL")
-    }else if (!cellNameCol %in% colnames(cellAnnots)){
-        stop("cellNameCol not in cellAnnots")
-    }
-    
-    if(!is(normalize, "logical")){
-        warning("normalize not a boolean, continuing with assumption that data should not be normalized")
-        normalize <- TRUE
-    }
-    if(!is(discardCellTypes, "logical")){
-        warning("discardCellTypes not a boolean, continuing with default of discarding cell types")
-        discardCellTypes <- TRUE
-    }
-    
-    if(!is(scalingFactor, "numeric")){
-        warning("scalingFactor not a numeric, continuing with default value of 5")
-        scalingFactor <- 5
-    }
-    if(!is(minCellNum, "numeric")){
-        warning("minCellNum not a numeric, continuing with default value of 15")
-        minCellNum <- 15
-    }
-    if(!is(minGenes, "numeric")){
-        warning("minGenes not a numeric, continuing with default value of 100")
-        minGenes <- 100
-    }
-    
-    #make a sparse matrix
-    mtx <- Matrix::Matrix(as.matrix(mtx), sparse = TRUE) 
-    
-    cellTypes <- NULL
-    
-    #read in cell type annotation file
-    #get cell types 
-    cellTypes <- cellAnnots[[cellTypeCol]]
-    #assign cell name to type
-    names(cellTypes) <- cellAnnots[[cellNameCol]]
-    
-    if(is.null(cellTypes)){
-        stop("cellAnnots and/or cellTypeCol arguments are incorrectly formatted. 
-                 cellAnnots should be a data frame, and cellTypeCol should give the 
-                 name of the column holding each cell's cell type.")
-    }
-    
-    rm(cellAnnots)
-    
-    # mtx <- as.data.frame(mtx)
-    
-    if(!any(names(cellTypes) %in% colnames(mtx)) & 
-       any(names(cellTypes) %in% rownames(mtx))){
-        print("Transposing Matrix")
-        mtx<- t(mtx)
-    }
-    
-    if(!any(names(cellTypes) %in% colnames(mtx))){
-        stop(paste("cellNameCol names does not match count matrix column names", 
-                   "matrix cell names:", colnames(mtx)[1], "annots cell names:", names(cellTypes)[1]))
-    }else if(!all(names(cellTypes) %in% colnames(mtx))){
-        missing <- length(which(!names(cellTypes) %in% colnames(mtx)))
-        warning(paste("not all cellNameCol names are in count matrix;", missing, "cells are missing"))
-    }
-    
-    if(discardCellTypes == TRUE){
-        #remove cells with no cell type assignment
-        w2rm <- which(is.na(cellTypes) | tolower(cellTypes) %in% c("unspecified", "unknown", "not available")) 
-        w2rm <- unique(c(w2rm, grep(pattern = "doublet|dividing|low q|filtered|mitotic", x = tolower(cellTypes))))
-        if(length(w2rm) > 0){
-            cellTypes <- cellTypes[-w2rm]
-        }
-    }
-    
-    #normalize data if necessary 
-    if(normalize == TRUE){
-        print("Normalizing Matrix")
-        med <- median(Matrix::colSums(mtx))
-        cols <- colnames(mtx)
-        rows <- rownames(mtx)
-        mtx <- Matrix::Matrix(sweep(mtx, 2, Matrix::colSums(mtx), "/") * med, 
-                              sparse = TRUE) 
-        
-        colnames(mtx) <- cols
-        rownames(mtx) <- rows
-        
-        rm(cols,rows)
-    }
-    
-    atlas <- NULL
-    
-    #get all unique cell types
-    CTs <- unique(cellTypes)
-    
-    print("Creating Atlas")
-    
-    #change to apply() if bioconductor requires it
-    for(i in CTs){
-        #print log of progress
-        print(paste(which(CTs == i), "/", length(CTs), ":", i))
-        
-        #get cell names for this cell type
-        cellsType <- names(cellTypes)[which(cellTypes == i)]
-        #confirm cells are in matrix
-        cellsType <- cellsType[which(cellsType %in% colnames(mtx))]
-        
-        if(length(cellsType) > minCellNum){
-            
-            if(length(cellsType) > 1){
-                #remove cells with low gene expression
-                cellsType <- cellsType[which(Matrix::colSums(mtx[,cellsType] > 0) > minGenes)]
-            }else{
-                cellsType <- cellsType[which(sum(mtx[,cellsType] > 0) > minGenes)]
-            }
-            
-            if(length(cellsType) > minCellNum){
-                #get average expression if there are enough cells for cell type
-                if(length(cellsType) > minCellNum & length(cellsType) != 1){
-                    atlas <- as.data.frame(cbind(atlas, Matrix::rowMeans(mtx[,cellsType], na.rm = TRUE)))
-                    colnames(atlas)[ncol(atlas)] <- i
-                }else{
-                    atlas <- as.data.frame(cbind(atlas, mtx[,cellsType]))
-                    colnames(atlas)[ncol(atlas)] <- i
-                }
-            }else{
-                warning(paste("\n", i, "was dropped from matrix because it didn't have enough viable cells based on current filtering thresholds. 
-                                        If this cell type is necessary consider changing minCellNum or minGenes\n"))
-            }
-        }else{
-            warning(paste("\n", i, "was dropped from matrix because it didn't have enough viable cells based on current filtering thresholds. 
-                                        If this cell type is necessary consider changing minCellNum or minGenes\n"))
-        }
-    }
-    
-    rm(cellTypes)
-    
-    numCellTypesExpr <- 1
-    
-    #subset to genes expressed in at least a user defined number of cell type(s)
-    if(ncol(atlas) == 1){
-        w2kp <- which(Matrix::rowSums(atlas > 0) >= numCellTypesExpr)
-        cols <- colnames(atlas)
-        rows <- rownames(atlas)[w2kp]
-        
-        atlas <- as.matrix(atlas[w2kp,])
-        
-        colnames(atlas) <- cols
-        rownames(atlas) <- rows
-        
-        rm(cols, rows, w2kp)
-    }else{
-        atlas <- atlas[which(Matrix::rowSums(atlas > 0) >= numCellTypesExpr),]
-    }
-    
-    #scale data
-    atlas <- atlas * scalingFactor
-    
-    if(!is.null(geneList)){
-        if(any(geneList %in% rownames(atlas))){
-            #subset to genes in panel
-            atlas <- atlas[rownames(atlas) %in% geneList,]
-        }else{
-            warning("geneList genes do not match genes in matrix, no filtering done")
-        }
-    }
-    
-    #ensure cell types don't contain ","
-    colnames(atlas) <- gsub(pattern = ",", replacement = "-", x = colnames(atlas))
-    
-    if(!is.null(outDir)){
-        #write profile matrix
-        write.table(atlas, file = paste0(outDir, "/", matrixName, "_profileMatrix.csv"), 
-                    row.names = TRUE, col.names = NA, quote = FALSE, sep = ",")
-    }
-    
-    return(as.matrix(atlas))
-}
 
+  # ----------------------------- Input checks ------------------------------
+  if (is.null(mtx))
+    stop("A count matrix (`mtx`) must be supplied.")
+
+  if (!is.null(outDir) && !dir.exists(outDir))
+    stop("Output directory does not exist: ", outDir)
+
+  if (is.null(cellAnnots) || !is.data.frame(cellAnnots))
+    stop("`cellAnnots` must be a data frame.")
+
+  if (is.null(cellTypeCol) || !cellTypeCol %in% colnames(cellAnnots))
+    stop("`cellTypeCol` must be a valid column in `cellAnnots`.")
+
+  if (is.null(cellNameCol) || !cellNameCol %in% colnames(cellAnnots))
+    stop("`cellNameCol` must be a valid column in `cellAnnots`.")
+
+  if (!is.logical(normalize))
+    warning("`normalize` should be TRUE/FALSE; continuing with default FALSE.")
+
+  if (!is.logical(discardCellTypes))
+    warning("`discardCellTypes` should be TRUE/FALSE; continuing with default TRUE.")
+
+  if (!is.numeric(scalingFactor)) {
+    warning("`scalingFactor` must be numeric. Using 5.")
+    scalingFactor <- 5
+  }
+
+  if (!is.numeric(minCellNum)) {
+    warning("`minCellNum` must be numeric. Using 15.")
+    minCellNum <- 15
+  }
+
+  if (!is.numeric(minGenes)) {
+    warning("`minGenes` must be numeric. Using 100.")
+    minGenes <- 100
+  }
+
+  # Ensure sparse
+  mtx <- Matrix::Matrix(as.matrix(mtx), sparse = TRUE)
+
+  # ----------------------- Extract cell-type annotation --------------------
+  cellTypes <- cellAnnots[[cellTypeCol]]
+  names(cellTypes) <- cellAnnots[[cellNameCol]]
+
+  if (is.null(cellTypes))
+    stop("Could not extract cell types from `cellAnnots`.")
+
+  # orientation check: transpose if needed
+  if (!any(names(cellTypes) %in% colnames(mtx)) &&
+      any(names(cellTypes) %in% rownames(mtx))) {
+    message("Transposing matrix to match cell orientation.")
+    mtx <- t(mtx)
+  }
+
+  if (!any(names(cellTypes) %in% colnames(mtx)))
+    stop("Cell IDs do not match any column names in `mtx`.")
+
+  if (!all(names(cellTypes) %in% colnames(mtx))) {
+    missing <- sum(!names(cellTypes) %in% colnames(mtx))
+    warning(missing, " cells in cellAnnots not present in the matrix.")
+  }
+
+  # ------------------------ Remove ambiguous cell types --------------------
+  if (discardCellTypes) {
+    bad <- is.na(cellTypes) |
+      tolower(cellTypes) %in% c("unknown", "unspecified", "not available")
+
+    # filter common unwanted labels
+    bad2 <- grep("doublet|dividing|low q|filtered|mitotic",
+                 tolower(cellTypes))
+
+    rmCells <- unique(c(which(bad), bad2))
+    if (length(rmCells) > 0)
+      cellTypes <- cellTypes[-rmCells]
+  }
+
+  # ---------------------------- Normalisation ------------------------------
+  if (normalize) {
+    message("Normalizing matrix by median library size.")
+    med <- median(Matrix::colSums(mtx))
+    mtx <- sweep(mtx, 2, Matrix::colSums(mtx), "/")
+    mtx <- mtx * med
+  }
+
+  # ---------------------------- Build Atlas --------------------------------
+  CTs <- unique(cellTypes)
+  atlas <- NULL
+
+  message("Creating profile matrix:")
+
+  for (ct in CTs) {
+
+    message(which(CTs == ct), "/", length(CTs), ": ", ct)
+
+    cells <- names(cellTypes)[cellTypes == ct]
+    cells <- cells[cells %in% colnames(mtx)]
+
+    if (length(cells) < minCellNum) {
+      warning("Skipping '", ct,
+              "' (< minCellNum cells). Adjust thresholds if needed.")
+      next
+    }
+
+    # Filter cells with low total detected genes
+    detected <- Matrix::colSums(mtx[, cells] > 0)
+    cells <- cells[detected > minGenes]
+
+    if (length(cells) < minCellNum) {
+      warning("Skipping '", ct,
+              "' after filtering for minGenes.")
+      next
+    }
+
+    # Compute mean expression for that cell type
+    if (length(cells) > 1) {
+      avg <- Matrix::rowMeans(mtx[, cells, drop = FALSE])
+    } else {
+      avg <- mtx[, cells, drop = FALSE]
+    }
+
+    # Append
+    atlas <- cbind(atlas, avg)
+    colnames(atlas)[ncol(atlas)] <- ct
+  }
+
+  if (is.null(atlas))
+    stop("No cell types passed thresholds — profile matrix empty.")
+
+  # ----------------------------- Gene filtering ----------------------------
+  keepGenes <- Matrix::rowSums(atlas > 0) >= 1
+  atlas <- atlas[keepGenes, ]
+
+  # ------------------------------ Scaling ----------------------------------
+  atlas <- atlas * scalingFactor
+
+  # ------------------------------- Gene list --------------------------------
+  if (!is.null(geneList)) {
+    keep <- intersect(rownames(atlas), geneList)
+    if (length(keep) == 0) {
+      warning("No geneList genes found in atlas — no filtering performed.")
+    } else {
+      atlas <- atlas[keep, , drop = FALSE]
+    }
+  }
+
+  # ------------------------------ Output -----------------------------------
+  colnames(atlas) <- gsub(",", "-", colnames(atlas))
+
+  if (!is.null(outDir)) {
+    outfile <- file.path(outDir, paste0(matrixName, "_profileMatrix.csv"))
+    write.table(atlas, outfile, sep = ",",
+                quote = FALSE, col.names = NA)
+  }
+
+  return(as.matrix(atlas))
+}

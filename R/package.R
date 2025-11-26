@@ -1,29 +1,46 @@
-#' @section functions:
-#' Functions to help set up deconvolution:
+#' BulkDecon: Bulk RNA-seq Deconvolution Using Custom Single-Cell References
+#'
+#' The **BulkDecon** package performs bulk RNA-seq deconvolution using user-defined
+#' single-cell reference datasets. It provides tools to preprocess expression
+#' matrices, estimate background levels, construct cell-type signature matrices,
+#' run deconvolution models, inspect residuals, and visualise results.
+#'
+#' @section Background estimation helpers:
+#' Functions for identifying stably low-expressed genes and estimating
+#' sample-specific background for bulk RNA-seq or GeoMx-style data.
+#'
 #' \itemize{
-#'  \item derive_GeoMx_background Estimates the background levels from GeoMx
-#'  experiments
-#'  \item collapseCellTypes reformats deconvolution results to merge
-#'  closely-related cell types
-#'  \item download_profile_matrix Downloads a cell profile matrix.
-#'  \item safeTME: a data object, a matrix of immune cell profiles for use in
-#'   tumor-immune deconvolution.
+#'   \item \code{calc_bgindex}: Internal function to compute background-stability
+#'         indices (SEG-like) via Normal/Gamma mixture modelling.
+#'   \item \code{calc_background}: Uses `calc_bgindex` to identify robust background
+#'         genes and estimate sample-wise background levels from a normalized matrix.
 #' }
-#' Deconvolution functions:
+#'
+#' @section Functions to set up deconvolution:
 #' \itemize{
-#'  \item bulkdecon runs the core deconvolution function
-#'  \item reverseDecon runs a transposed/reverse deconvolution problem, fitting
-#'  the data as a function of cell abundance estimates.
-#'   Used to measure genes' dependency on cell mixing and to calculate gene
-#'    residuals from cell mixing.
+#'   \item \code{collapseCellTypes}: Merge granular cell types into broader groups.
+#'   \item \code{download_profile_matrix}: Download or load profile matrices.
+#'   \item \code{safeTME}: Dataset providing immune cell expression profiles for
+#'         tumor/immune deconvolution.
 #' }
-#' Plotting functions:
+#'
+#' @section Deconvolution functions:
 #' \itemize{
-#'  \item florets Plot cell abundance on a specified x-y space, with each point
-#'   a cockscomb plot showing the cell abundances of that region/sample.
-#'  \item TIL_barplot Plot abundances of tumor infiltrating lymphocytes (TILs)
-#'   estimated from the safeTME cell profile matrix
+#'   \item \code{bulkdecon}: Core function performing bulk RNA-seq deconvolution
+#'         using supplied cell-type signatures.
+#'   \item \code{reverseDecon}: Fits a reverse model (expression ~ cell
+#'         proportions) to inspect gene-level dependence on cellular composition
+#'         and compute de-mixed residuals.
 #' }
+#'
+#' @section Plotting functions:
+#' \itemize{
+#'   \item \code{florets}: Visualise cell proportions using cockscomb-style plots
+#'         positioned in 2D space.
+#'   \item \code{TIL_barplot}: Plot estimated tumor infiltrating lymphocyte (TIL)
+#'         abundances from a SafeTME-derived deconvolution.
+#' }
+#'
 #' @docType package
 #' @name BulkDecon
 NULL

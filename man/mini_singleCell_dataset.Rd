@@ -3,20 +3,17 @@
 \docType{data}
 \name{mini_singleCell_dataset}
 \alias{mini_singleCell_dataset}
-\title{Mini human colon single cell dataset}
+\title{Mini Human Colon Single-Cell Dataset}
 \format{
-A list with the following elements:
+A list with two elements:
 \itemize{
-\item mtx: sparse count matrix
-\item annots: cell type annotation data frame
+\item \code{mtx}: sparse count matrix (genes × cells)
+\item \code{annots}: data frame of cell-type annotations
 }
-}
-\usage{
-mini_singleCell_dataset
 }
 \description{
-Random 250 cells and most informative genes (CV > 10) between cell types from
-Kinchen, J. et al. Structural Remodeling of the Human Colonic
-Mesenchyme in Inflammatory Bowel Disease. Cell 175, 372-386.e17 (2018).
+A small single-cell RNA-seq dataset containing 250 randomly selected
+cells from the Kinchen et al. (2018) human colon study. Only genes with
+CV > 10 across cell types were retained.
 }
 \keyword{datasets}

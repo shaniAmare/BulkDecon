@@ -1,150 +1,127 @@
-#' BulkDecon mixed cell deconvolution algorithm
+#' Core Deconvolution Algorithm (BulkDecon Internal)
 #'
-#' Runs the generic BulkDecon decon workflow, including:
+#' @description
+#' Performs the two–stage log-normal regression (LNR) deconvolution used
+#' internally in BulkDecon.
+#' This function aligns genes (optional), fits the LNR model, removes outlier
+#' genes based on residuals, refits the model, and computes statistical
+#' significance (t-statistics and p-values).
+#'
+#' @details
+#' The algorithm proceeds in 7 steps:
 #' \enumerate{
-#' \item run deconvolution once
-#' \item remove poorly-fit genes from first round of decon
-#' \item re-run decon with cleaned-up gene set
-#' \item compute p-values
+#'   \item Optional alignment of genes between `Y` and `X`.
+#'   \item Internal formatting of matrices via `tidy_X_and_Y()`.
+#'   \item Determination of the epsilon parameter (smallest nonzero value).
+#'   \item Initial LNR fit using \code{deconLNR()}.
+#'   \item Detection of outlier genes via \code{flagOutliers()}.
+#'   \item Refit after masking outlier genes with \code{NA}.
+#'   \item Compute standard errors, t-statistics and p-values.
 #' }
 #'
-#' @param Y p-length expression vector or p * N expression matrix - the actual
-#' (linear-scale) data
-#' @param X p * K Training matrix.
-#' @param bg Expected background counts. Provide a scalar to apply to all
-#'  data points, or
-#'  else a matrix/vector aligning with Y to provide more nuanced expected
-#'   background.
-#' @param weights The same as the weights argument used by lm
-#' @param resid_thresh A scalar, sets a threshold on how extreme individual
-#' data points' values
-#'  can be (in log2 units) before getting flagged as outliers and set to NA.
-#' @param lower_thresh A scalar. Before log2-scale residuals are calculated,
-#' both observed and fitted
-#'  values get thresholded up to this value. Prevents log2-scale residuals from
-#'  becoming extreme in
-#'  points near zero.
-#' @param align_genes Logical. If TRUE, then Y, X, bg, and wts are row-aligned
-#' by shared genes.
-#' @param maxit Maximum number of iterations. Default 1000.
-#' @return a list:
+#' @param Y Matrix of observed bulk expression data (genes × samples).
+#' @param X Cell reference expression matrix (genes × cell types).
+#' @param bg Background matrix or vector (same gene dimension as `Y`).
+#' @param weights Optional gene × sample weights matrix.
+#' @param resid_thresh Threshold for outlier detection on log-residuals.
+#' @param lower_thresh Threshold used in log2 stabilisation for residuals.
+#' @param align_genes Logical; if \code{TRUE}, align gene sets between `Y` and `X`.
+#' @param maxit Maximum iterations passed to \code{deconLNR()}.
+#'
+#' @return
+#' A list containing:
 #' \itemize{
-#' \item beta: matrix of cell abundance estimates, cells in rows and
-#' observations in columns
-#' \item sigmas: covariance matrices of each observation's beta estimates
-#' \item p: matrix of p-values for H0: beta == 0
-#' \item t: matrix of t-statistics for H0: beta == 0
-#' \item se: matrix of standard errors of beta values
-#' \item resids: a matrix of residuals from the model fit.
-#' (log2(pmax(y, lower_thresh)) - log2(pmax(xb, lower_thresh))).
+#'   \item \code{beta} – estimated cell-type abundances
+#'   \item \code{sigmas} – covariance matrices of model coefficients
+#'   \item \code{yhat} – fitted values
+#'   \item \code{resids} – residual matrix
+#'   \item \code{p}, \code{t}, \code{se} – p-values, t-statistics, SEs
+#'   \item any additional fields returned by \code{deconLNR()}
 #' }
-#' @import stats
-#' @importFrom stats pnorm
+#'
 #' @keywords internal
-#' @noRd
+#' @importFrom stats pnorm
+#' @export
 algorithm2 <- function(Y, X, bg = 0, weights = NULL,
                        resid_thresh = 3, lower_thresh = 0.5,
                        align_genes = TRUE, maxit = 1000) {
 
-    # align genes:
-    if (align_genes) {
-        sharedgenes <- intersect(rownames(X), rownames(Y))
-        Y <- Y[sharedgenes, ]
-        X <- X[sharedgenes, ]
-        if (is.matrix(bg)) {
-            bg <- bg[sharedgenes, ]
-        }
-        if (is.matrix(weights)) {
-            weights <- weights[sharedgenes, ]
-        }
+  ## 1. Align genes if requested
+  if (align_genes) {
+    sharedgenes <- intersect(rownames(X), rownames(Y))
+    Y <- Y[sharedgenes, , drop = FALSE]
+    X <- X[sharedgenes, , drop = FALSE]
+
+    if (is.matrix(bg)) {
+      bg <- bg[sharedgenes, , drop = FALSE]
     }
-
-    # format the data nicely:
-    tidied <- tidy_X_and_Y(X, Y)
-    X <- tidied$X
-    Y <- tidied$Y
-    if ((length(bg) > 0) & (is.vector(bg))) {
-        bg <- matrix(bg, nrow = length(bg))
+    if (is.matrix(weights)) {
+      weights <- weights[sharedgenes, , drop = FALSE]
     }
+  }
 
-    # select an epsilon (lowest non-zero value to use)
-    epsilon <- min(Y[(Y > 0) & !is.na(Y)])
+  ## 2. Format the data
+  tidied <- tidy_X_and_Y(X, Y)
+  X <- tidied$X
+  Y <- tidied$Y
 
+  ## convert bg to matrix if needed
+  if (is.vector(bg) && length(bg) > 0) {
+    bg <- matrix(bg, nrow = length(bg))
+  }
 
-    # initial run to look for outliers:
-    out0 <- deconLNR(
-        Y = Y, X = X, bg = bg, weights = weights, epsilon = epsilon,
-        maxit = maxit
-    )
-    # also get yhat and resids:
-    out0$yhat <- X %*% out0$beta + bg
-    out0$resids <- log2(pmax(Y, lower_thresh)) -
-        log2(pmax(out0$yhat, lower_thresh))
+  ## 3. Select epsilon
+  epsilon <- min(Y[(Y > 0) & !is.na(Y)])
 
-    # ID bad genes:
-    outliers <- flagOutliers(
-        Y = Y,
-        yhat = out0$yhat,
-        wts = weights,
-        resids = out0$resids,
-        resid_thresh = resid_thresh
-    )
+  ## 4. Initial run to detect outliers
+  out0 <- deconLNR(
+    Y = Y, X = X, bg = bg, weights = weights, epsilon = epsilon,
+    maxit = maxit
+  )
 
-    # remove outlier data points:
-    Y.nooutliers <- replace(Y, outliers, NA)
+  out0$yhat <- X %*% out0$beta + bg
+  out0$resids <- log2(pmax(Y, lower_thresh)) -
+    log2(pmax(out0$yhat, lower_thresh))
 
-    # re-run decon without outliers:
-    out <- deconLNR(
-        Y = Y.nooutliers,
-        X = X,
-        bg = bg,
-        weights = weights,
-        epsilon = epsilon
-    )
-    out$yhat <- X %*% out$beta + bg
-    out$resids <- log2(pmax(Y.nooutliers, 0.5)) - log2(pmax(out$yhat, 0.5))
+  ## 5. Flag outlier genes
+  outliers <- flagOutliers(
+    Y = Y,
+    yhat = out0$yhat,
+    wts = weights,
+    resids = out0$resids,
+    resid_thresh = resid_thresh
+  )
 
-    # compute p-values
-    tempbeta <- out$beta
-    tempse <- tempp <- tempt <- tempbeta * NA
-    for (i in seq_len(ncol(tempse))) {
-        tempse[, i] <- suppressWarnings(sqrt(diag(out$sigmas[, , i])))
-    }
-    tempt <- (tempbeta / tempse)
-    tempp <- 2 * (1 - stats::pnorm(tempt))
-    out$p <- tempp
-    out$t <- tempt
-    out$se <- tempse
+  ## 6. Remove outliers & rerun
+  Y.nooutliers <- replace(Y, outliers, NA)
 
-    # structure of output: beta, hessians, yhat, resids
-    return(out)
-}
+  out <- deconLNR(
+    Y = Y.nooutliers,
+    X = X,
+    bg = bg,
+    weights = weights,
+    epsilon = epsilon
+  )
 
+  out$yhat <- X %*% out$beta + bg
+  out$resids <- log2(pmax(Y.nooutliers, 0.5)) - log2(pmax(out$yhat, 0.5))
 
+  ## 7. Compute p-values
+  tempbeta <- out$beta
+  tempse <- tempbeta * NA
+  tempt <- tempbeta * NA
+  tempp <- tempbeta * NA
 
-#' Function to format Y, X inputs for decon
-#'
-#' Takes user-supplied X and Y, checks for accuracy, aligns by dimnames, adds
-#' dimnames if missing
-#'
-#' @param X X matrix
-#' @param Y Data matrix
-#' @return X and Y, both formatted as matrices, with full dimnames and aligned
-#' to each other by dimname
-#' @keywords internal
-#' @noRd
-tidy_X_and_Y <- function(X, Y) {
+  for (i in seq_len(ncol(tempse))) {
+    tempse[, i] <- suppressWarnings(sqrt(diag(out$sigmas[, , i])))
+  }
 
-    # format as matrices:
-    Ynew <- Y
-    if (is.vector(Y)) {
-        Ynew <- matrix(Y, nrow = length(Y), dimnames = list(names(Y), "y"))
-    }
-    Xnew <- X
+  tempt <- tempbeta / tempse
+  tempp <- 2 * (1 - stats::pnorm(tempt))
 
-    # check alignment:
-    if (!identical(rownames(Y), rownames(X))) {
-        warning("Rows (genes) of X and Y are mis-aligned.")
-    }
-    out <- list(X = Xnew, Y = Ynew)
+  out$p <- tempp
+  out$t <- tempt
+  out$se <- tempse
+
+  return(out)
 }

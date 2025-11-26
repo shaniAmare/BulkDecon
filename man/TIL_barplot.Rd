@@ -2,50 +2,43 @@
 % Please edit documentation in R/TIL_barplot.R
 \name{TIL_barplot}
 \alias{TIL_barplot}
-\title{Barplot of abundance estimates}
+\title{Plot TIL Composition as Barplots}
 \usage{
 TIL_barplot(mat, draw_legend = FALSE, main = "", col = NULL, ...)
 }
 \arguments{
-\item{mat}{Matrix of cell proportions or abundances, in the same dimensions
-output by bulkdecon
-(cells in rows, observations in columns). User is free to re-order
-columns/observations in
-whatever order is best for display.}
+\item{mat}{A numeric matrix with \strong{cell types in rows} and \strong{samples in columns}.
+Row names must be present and will be used as labels.}
 
-\item{draw_legend}{Logical. If TRUE, the function draws a legend in a new
-plot frame.}
+\item{draw_legend}{Logical; if \code{TRUE}, draws a legend in a separate frame.}
 
-\item{main}{Title for barplot}
+\item{main}{Character; title of the barplot.}
 
-\item{col}{Vector of colors for cell types. Defaults to pre-set colors for
-the safeTME cell types.}
+\item{col}{Optional named vector of colors, one per cell type (rownames of \code{mat}).
+If omitted, a reproducible palette is auto-generated.}
 
-\item{...}{Arguments passed to barplot()}
+\item{...}{Additional arguments passed to \code{graphics::barplot()}.}
 }
 \value{
-Draws a barplot.
+Invisibly returns \code{NULL}.
+The function is used for generating plots and has no structured return object.
 }
 \description{
-Draw barplot of the "betas" from a decon fit
+Creates a stacked barplot of cell-type proportions across samples.
+Each row of \code{mat} represents a cell type, and each column represents a sample.
+}
+\details{
+If no color vector is provided, the function automatically generates a large
+set of distinct colors for all cell types.
+A legend can be optionally drawn beside the barplot.
 }
 \examples{
-data(mini_geomx_dataset)
-data(safeTME)
-# estimate background:
-mini_geomx_dataset$bg <- derive_GeoMx_background(
-  norm = mini_geomx_dataset$normalized,
-  probepool = rep(1, nrow(mini_geomx_dataset$normalized)),
-  negnames = "NegProbe"
-)
-# run basic decon:
-res0 <- bulkdecon(
-  norm = mini_geomx_dataset$normalized,
-  bg = mini_geomx_dataset$bg,
-  X = safeTME
-)
-# run barplot:
-TIL_barplot(mat = res0$beta)
-# run barplot and draw a color legend
-TIL_barplot(mat = res0$beta, draw_legend = TRUE)
+\dontrun{
+mat <- matrix(runif(30), nrow = 5)
+rownames(mat) <- c("T_cells", "B_cells", "NK", "Macrophages", "DCs")
+colnames(mat) <- paste0("Sample", 1:6)
+
+TIL_barplot(mat, draw_legend = TRUE, main = "TIL Composition")
+}
+
 }

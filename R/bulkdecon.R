@@ -1,265 +1,191 @@
-#' Mixed cell deconvolution of bulk gene expression data
+#' Mixed Cell Deconvolution of Bulk Gene Expression Data
 #'
-#' Runs the bulkdecon algorithm with added optional functionalities.
-#' Workflow is:
-#' \enumerate{
-#' \item compute weights from raw data
-#' \item Estimate a tumor profile and merge it into the cell profiles matrix
-#' \item run deconvolution once
-#' \item remove poorly-fit genes from first round of decon
-#' \item re-run decon with cleaned-up gene set
-#' \item combine closely-related cell types
-#' \item compute p-values
-#' \item rescale abundance estimates, to proportions of total, proportions of
-#'  immune, cell counts
-#' }
+#' @description
+#' Performs bulk deconvolution using the BulkDecon framework, with optional
+#' weighting, tumor merging, cell-type collapsing, and p-value computation.
+#' This function is adapted from the SpatialDecon implementation but uses the
+#' BulkDecon package structure and bundled reference matrix (safeTME).
 #'
-#' @param norm p-length expression vector or p * N expression matrix - the
-#' actual (linear-scale) data
-#' @param bg Same dimension as norm: the background expected at each data point.
-#' @param X Cell profile matrix. If NULL, the safeTME matrix is used.
-#' @param raw Optional for using an error model to weight the data points.
-#'  p-length expression vector or p * N expression matrix - the raw
-#'  (linear-scale) data
-#' @param wts Optional, a matrix of weights.
-#' @param resid_thresh A scalar, sets a threshold on how extreme individual data
-#'  points' values
-#'  can be (in log2 units) before getting flagged as outliers and set to NA.
-#' @param lower_thresh A scalar. Before log2-scale residuals are calculated,
-#'  both observed and fitted
-#'  values get thresholded up to this value. Prevents log2-scale residuals from
-#'  becoming extreme in
-#'  points near zero.
-#' @param align_genes Logical. If TRUE, then Y, X, bg, and wts are row-aligned
-#'  by shared genes.
-#' @param is_pure_tumor A logical vector denoting whether each AOI consists of
-#'  pure tumor. If specified,
-#'  then the algorithm will derive a tumor expression profile and merge it with
-#'  the immune profiles matrix.
-#' @param cell_counts Number of cells estimated to be within each sample. If
-#' provided alongside norm_factors,
-#'  then the algorithm will additionally output cell abundance esimtates on the
-#'  scale of cell counts.
-#' @param cellmerges A list object holding the mapping from beta's cell names to
-#'  combined cell names. If left
-#'  NULL, then defaults to a mapping of granular immune cell definitions to
-#'   broader categories.
-#' @param n_tumor_clusters Number of tumor-specific columns to merge into the
-#' cell profile matrix.
-#'  Has an impact only when is_pure_tumor argument is used to indicate pure
-#'   tumor AOIs.
-#'  Takes this many clusters from the pure-tumor AOI data and gets the average
-#'  expression profile in each cluster.  Default 10.
-#' @param maxit Maximum number of iterations. Default 1000.
-#' @return a list:
-#' \itemize{
-#' \item beta: matrix of cell abundance estimates, cells in rows and
-#' observations in columns
-#' \item sigmas: covariance matrices of each observation's beta estimates
-#' \item p: matrix of p-values for H0: beta == 0
-#' \item t: matrix of t-statistics for H0: beta == 0
-#' \item se: matrix of standard errors of beta values
-#' \item prop_of_all: rescaling of beta to sum to 1 in each observation
-#' \item prop_of_nontumor: rescaling of beta to sum to 1 in each observation,
-#' excluding tumor abundance estimates
-#' \item cell.counts: beta rescaled to estimate cell numbers, based on
-#' prop_of_all and nuclei count
-#' \item beta.granular: cell abundances prior to combining closely-related
-#' cell types
-#' \item sigma.granular: sigmas prior to combining closely-related cell types
-#' \item cell.counts.granular: cell.counts prior to combining closely-related
-#' cell types
-#' \item resids: a matrix of residuals from the model fit.
-#'  (log2(pmax(y, lower_thresh)) - log2(pmax(xb, lower_thresh))).
-#' \item X: the cell profile matrix used in the decon fit.
-#' }
-#' @examples
-#' data(mini_geomx_dataset)
-#' data(safeTME)
-#' data(safeTME.matches)
-#' # estimate background:
-#' mini_geomx_dataset$bg <- derive_GeoMx_background(
-#'   norm = mini_geomx_dataset$normalized,
-#'   probepool = rep(1, nrow(mini_geomx_dataset$normalized)),
-#'   negnames = "NegProbe"
-#' )
-#' # run basic decon:
-#' res0 <- runbulkdecon(norm_elt   = nc,
-#'         raw_elt     = rc,
-#'         X           = custom_mtx,
-#'         align_genes = TRUE)
-#' # run decon with bells and whistles:
-#' res <- bulkdecon(
-#'   norm = nc,
-#'   bg = rc,
-#'   X = safeTME,
-#'   cellmerges = safeTME.matches,
-#'   cell_counts = mini_geomx_dataset$annot$nuclei,
-#'   is_pure_tumor = mini_geomx_dataset$annot$AOI.name == "Tumor"
-#' )
+#' @details
+#' The function accepts either a vector (single sample) or a matrix of bulk
+#' expression data and estimates the cellular composition using a reference
+#' profile matrix. Additional steps include:
+#'
+#' * optional gene weighting via residual stabilization
+#' * merging pure-tumor samples into the reference
+#' * collapsing granular cell types into user-defined merged classes
+#' * computing t-statistics, standard errors, and p-values
+#' * proportion scaling and optional conversion to estimated cell counts
+#'
+#' @param norm A p-length expression vector or a p × N matrix of log-expression.
+#' @param bg Background expectation (same dimension as `norm`).
+#' @param X Cell profile matrix. If `NULL`, the bundled `safeTME` reference
+#'   from **BulkDecon** is used.
+#' @param raw Optional raw (linear-scale) expression matrix for deriving weights.
+#' @param wts Optional weights matrix for genes × samples.
+#' @param resid_thresh Threshold (log2 units) for outlier residual removal.
+#' @param lower_thresh Threshold for residual stabilization.
+#' @param align_genes Logical; if `TRUE`, aligns the gene sets between `norm` and `X`.
+#' @param is_pure_tumor Optional logical vector indicating pure tumor samples.
+#' @param n_tumor_clusters Number of tumor clusters to merge into the reference.
+#' @param cell_counts Optional numeric vector of nuclei counts per sample.
+#' @param cellmerges Optional list mapping granular → merged cell types.
+#' @param maxit Maximum number of iterations for the optimization procedure.
+#'
+#' @return
+#' A list containing:
+#' * `beta` – estimated cell-type abundance matrix
+#' * `sigma` – variance estimates
+#' * `p`, `t`, `se` – p-values, t-statistics, and standard errors
+#' * `prop_of_all`, `prop_of_nontumor` – proportional abundances
+#' * `cell.counts` – estimated cell counts (if `cell_counts` supplied)
+#' * `X` – processed/merged reference matrix
+#' * `beta.granular`, `sigma.granular` – pre-merge estimates (if applicable)
+#' * all intermediate fields returned by the core deconvolution algorithm
+#'
 #' @importFrom stats pnorm
 #' @importFrom utils data
 #' @export
 bulkdecon <- function(norm,
-                         bg,
-                         X = NULL,
-                         raw = NULL,
-                         wts = NULL,
-                         resid_thresh = 3, lower_thresh = 0.5,
-                         align_genes = TRUE,
-                         is_pure_tumor = NULL, n_tumor_clusters = 10,
-                         cell_counts = NULL,
-                         cellmerges = NULL,
-                         maxit = 1000){
+                      bg,
+                      X = NULL,
+                      raw = NULL,
+                      wts = NULL,
+                      resid_thresh = 3, lower_thresh = 0.5,
+                      align_genes = TRUE,
+                      is_pure_tumor = NULL, n_tumor_clusters = 10,
+                      cell_counts = NULL,
+                      cellmerges = NULL,
+                      maxit = 1000) {
 
-    #### preliminaries ---------------------------------
+  #### preliminaries ---------------------------------
 
-    # check formatting:
-    if (!is.matrix(norm)) {
-        stop("norm should be a matrix")
-    }
-    if ((length(X) > 0) & (!is.matrix(X))) {
-        stop("X should be a matrix")
-    }
-    if ((length(raw) > 0) & (!is.matrix(raw))) {
-        stop("raw must be a matrix")
-    }
-    if ((length(wts) > 0) & (!is.matrix(wts))) {
-      stop("wts must be a matrix")
-    }
-    if ((length(cell_counts) > 0) & (!is.numeric(cell_counts))) {
-        stop("cell_counts must be numeric")
-    }
+  # check formatting:
+  if (!is.matrix(norm)) stop("norm should be a matrix")
+  if ((length(X) > 0) & (!is.matrix(X))) stop("X should be a matrix")
+  if ((length(raw) > 0) & (!is.matrix(raw))) stop("raw must be a matrix")
+  if ((length(wts) > 0) & (!is.matrix(wts))) stop("wts must be a matrix")
+  if ((length(cell_counts) > 0) & (!is.numeric(cell_counts)))
+    stop("cell_counts must be numeric")
 
+  # background handling
+  if (length(bg) == 1) {
+    bg <- matrix(bg, nrow(norm), ncol(norm),
+                 dimnames = list(rownames(norm), colnames(norm)))
+  }
 
-    if (length(bg) == 1) {
-        bg <- matrix(bg, nrow(norm), ncol(norm),
-                     dimnames = list(rownames(norm), colnames(norm))
-        )
-    }
+  # If a matrix other than safeTME is input, rescale training matrix:
+  if (length(X) > 0) {
+    X <- X * 2 / quantile(X, 0.99)
+  }
 
-    # If a matrix other than safeTME is input, rescale training matrix to avoid bad convergence properties:
-    if (length(X) > 0) {
-        # rescale matrix so its 99th percentile is near that of safeTME (which has a 99th percentile = 2.3)
-        X <- X * 2 / quantile(X, 0.99)
-    }
+  # load bundled safeTME if X not supplied
+  if (length(X) == 0) {
+    utils::data("safeTME", package = "BulkDecon", envir = environment())
+    X <- safeTME
+  }
 
-    # prep training matrix:
-    if (length(X) == 0) {
-        utils::data("safeTME", envir = environment())
-        X <- SpatialDecon::safeTME
-    }
+  sharedgenes <- intersect(rownames(norm), rownames(X))
+  if (length(sharedgenes) == 0) stop("no shared gene names between norm and X")
+  if (length(sharedgenes) < 100) {
+    stop(paste0("Only ", length(sharedgenes),
+                " genes are shared between norm and X — may not be enough."))
+  }
+
+  # calculate weights (if raw provided)
+  if (length(raw) > 0) {
+    weight.by.TIL.resid.sd <-
+      length(intersect(colnames(X), colnames(safeTME))) > 10
+
+    wts <- deriveWeights(
+      norm,
+      raw = raw,
+      error.model = "dsp",
+      weight.by.TIL.resid.sd = weight.by.TIL.resid.sd
+    )
+  }
+
+  #### if pure tumor samples specified ------------------------------
+  if (sum(is_pure_tumor) > 0) {
+
+    X <- mergeTumorIntoX(
+      norm = norm,
+      bg = bg,
+      pure_tumor_ids = is_pure_tumor,
+      X = X[sharedgenes, ]
+    )
+
     sharedgenes <- intersect(rownames(norm), rownames(X))
-    if (length(sharedgenes) == 0) {
-        stop("no shared gene names between norm and X")
-    }
-    if (length(sharedgenes) < 100) {
-        stop(paste0(
-            "Only ", length(sharedgenes),
-            " genes are shared between norm and X - this may not be enough
-                to support accurate deconvolution."
-        ))
-    }
+  }
 
-    # calculate weights based on expected SD of counts
-    # wts = replace(norm, TRUE, 1)
-    if (length(raw) > 0) {
-        weight.by.TIL.resid.sd <-
-            length(intersect(colnames(X), colnames(SpatialDecon::safeTME))) > 10
-        wts <- deriveWeights(norm,
-                             raw = raw, error.model = "dsp",
-                             weight.by.TIL.resid.sd = weight.by.TIL.resid.sd
-        )
-    }
+  #### run decon ----------------------------------------------------
+  res <- algorithm2(
+    Y = norm[sharedgenes, ],
+    bg = bg[sharedgenes, ],
+    X = X[sharedgenes, ],
+    weights = wts[sharedgenes, ],
+    maxit = maxit,
+    resid_thresh = resid_thresh,
+    lower_thresh = lower_thresh
+  )
 
-    #### if pure tumor samples are specified, get tumor expression profile --------
-    if (sum(is_pure_tumor) > 0) {
-
-        # derive tumor profiles and merge into X:
-        # (derive a separate profile for each tissue)
-        X <- mergeTumorIntoX(
-            norm = norm,
-            bg = bg,
-            pure_tumor_ids = is_pure_tumor,
-            X = X[sharedgenes, ]
-        )
-
-        sharedgenes <- intersect(rownames(norm), rownames(X))
-    }
-
-
-    #### Run decon  -----------------------------------
-    res <- algorithm2(
-        Y = norm[sharedgenes, ],
-        bg = bg[sharedgenes, ],
-        X = X[sharedgenes, ],
-        weights = wts[sharedgenes, ],
-        maxit = maxit,
-        resid_thresh = resid_thresh,
-        lower_thresh = lower_thresh
+  #### combine related cell types ----------------------------------
+  if (length(cellmerges) > 0) {
+    tempconv <- convertCellTypes(
+      beta = res$beta,
+      matching = cellmerges,
+      stat = sum,
+      na.rm = FALSE,
+      sigma = res$sigmas
     )
 
+    res$beta.granular <- res$beta
+    res$sigma.granular <- res$sigmas
 
-    #### combine closely-related cell types ------------------------------------
+    res$beta <- tempconv$beta
+    res$sigma <- tempconv$sigma
+  }
 
-    if (length(cellmerges) > 0) {
-        tempconv <- convertCellTypes(
-            beta = res$beta,
-            matching = cellmerges,
-            stat = sum,
-            na.rm = FALSE,
-            sigma = res$sigmas
-        )
-        # overwrite original beta with merged beta:
-        res$beta.granular <- res$beta
-        res$sigma.granular <- res$sigmas
-        res$sigmas <- NULL
-        res$beta <- tempconv$beta
-        res$sigma <- tempconv$sigma
-    }
+  #### compute p-values --------------------------------------------
+  tempbeta <- res$beta
+  tempse <- tempp <- tempt <- tempbeta * NA
 
+  for (i in seq_len(ncol(tempse))) {
+    tempse[, i] <- suppressWarnings(sqrt(diag(res$sigma[, , i])))
+  }
 
-    #### compute p-values -------------------------------------------
-    tempbeta <- res$beta
-    tempse <- tempp <- tempt <- tempbeta * NA
-    for (i in seq_len(ncol(tempse))) {
-        tempse[, i] <- suppressWarnings(sqrt(diag(res$sigma[, , i])))
-    }
-    tempt <- (tempbeta / tempse)
-    tempp <- 2 * (1 - stats::pnorm(tempt))
-    res$p <- tempp
-    res$t <- tempt
-    res$se <- tempse
+  tempt <- tempbeta / tempse
+  tempp <- 2 * (1 - stats::pnorm(tempt))
 
+  res$p <- tempp
+  res$t <- tempt
+  res$se <- tempse
 
-    #### rescale abundance estimates --------------------------------
-    # (to proportions of total, proportions of immune, cell counts)
+  #### abundances: proportions + cell counts ------------------------
+  res$prop_of_all <- sweep(res$beta, 2, colSums(res$beta), "/")
 
-    # proportions:
-    res$prop_of_all <- sweep(res$beta, 2, colSums(res$beta), "/")
-    nontumorcellnames <- rownames(res$beta)[!grepl("tumor", rownames(res$beta))]
-    res$prop_of_nontumor <- sweep(
-        res$beta[nontumorcellnames, ], 2,
-        colSums(res$beta[nontumorcellnames, ]), "/"
+  nontumor <- rownames(res$beta)[!grepl("tumor", rownames(res$beta))]
+  res$prop_of_nontumor <- sweep(
+    res$beta[nontumor, ], 2,
+    colSums(res$beta[nontumor, ]), "/"
+  )
+
+  if (length(cell_counts) > 0) {
+    res$cell.counts <- convertCellScoresToCounts(
+      beta = res$beta,
+      nuclei.counts = cell_counts,
+      omit.tumor = TRUE
     )
 
-    # on scale of cell counts:
-    if (length(cell_counts) > 0) {
-        res$cell.counts <- convertCellScoresToCounts(
-            beta = res$beta,
-            nuclei.counts = cell_counts,
-            omit.tumor = TRUE
-        )
-        if (length(res$beta.granular) > 0) {
-            res$cell.counts.granular <- convertCellScoresToCounts(
-                beta = res$beta.granular,
-                nuclei.counts = cell_counts,
-                omit.tumor = TRUE
-            )
-        }
+    if (length(res$beta.granular) > 0) {
+      res$cell.counts.granular <- convertCellScoresToCounts(
+        beta = res$beta.granular,
+        nuclei.counts = cell_counts,
+        omit.tumor = TRUE
+      )
     }
+  }
 
-    # add other pertinent info to res:
-    res$X <- X[rownames(res$resids), ]
-    return(res)
+  res$X <- X[rownames(res$resids), ]
+  return(res)
 }

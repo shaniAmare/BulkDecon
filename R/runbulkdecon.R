@@ -1,68 +1,107 @@
+#' Run the BulkDecon workflow on bulk expression data
+#'
+#' This function runs the full BulkDecon pipeline using:
+#' \itemize{
+#'   \item a normalized bulk expression matrix (`norm_elt`)
+#'   \item a raw (unnormalized) bulk expression matrix (`raw_elt`)
+#'   \item a single-cell or custom signature matrix (`X`)
+#' }
+#'
+#' The function automatically:
+#' \enumerate{
+#'   \item converts inputs to matrices
+#'   \item estimates background using \code{calc_background()}
+#'   \item runs \code{bulkdecon()} with the appropriate inputs
+#' }
+#'
+#' @param X Signature matrix (genes × cell types).
+#' @param norm_elt Normalized bulk expression matrix.
+#' @param raw_elt Raw (unnormalized) bulk expression matrix.
+#' @param wts Optional weights matrix (same dimensions as norm_elt).
+#' @param resid_thresh Residual threshold for outlier filtering (log2 scale).
+#' @param lower_thresh Lower bound for stabilized log2 residuals.
+#' @param align_genes Logical; align genes by shared rownames (default TRUE).
+#' @param is_pure_tumor Optional logical vector indicating tumor-pure samples.
+#' @param n_tumor_clusters Integer; number of tumor clusters for pure-tumor mode.
+#' @param cell_counts Optional vector of known cell counts per sample.
+#' @param cellmerges Optional list describing merged cell type groups.
+#' @param maxit Maximum number of iterations for deconvolution.
+#'
+#' @return A list returned by \code{bulkdecon()}, containing:
+#' \itemize{
+#'   \item \code{beta}: estimated cell proportions
+#'   \item \code{sigmas}: covariance matrices
+#'   \item \code{p}: p-values
+#'   \item \code{t}: t-statistics
+#'   \item \code{se}: standard errors
+#'   \item \code{yhat}: fitted values
+#'   \item \code{resids}: residual matrix
+#' }
+#'
+#' @export
+runbulkdecon <- function(
+    X = NULL,
+    norm_elt = NULL,
+    raw_elt = NULL,
+    wts = NULL,
+    resid_thresh = 3,
+    lower_thresh = 0.5,
+    align_genes = TRUE,
+    is_pure_tumor = NULL,
+    n_tumor_clusters = 10,
+    cell_counts = NULL,
+    cellmerges = NULL,
+    maxit = 1000
+) {
 
-# idea here:
-# Use the bulk normallised count matrix - how?
-# raw expression values (v$E from limma-voom)
-# also use the single cell custom matrix that can be made
-# check the anndata format into just using the mtrix
-# run decon
-
-runbulkdecon <- function(X = NULL, norm_elt = NULL, raw_elt = NULL,
-         wts = NULL,
-         resid_thresh = 3, lower_thresh = 0.5,
-         align_genes = TRUE,
-         is_pure_tumor = NULL, n_tumor_clusters = 10,
-         cell_counts = NULL,
-         cellmerges = NULL,
-         maxit = 1000){
-
-  # check that norm and raw data exists:
-  if(is.null(norm_elt)){
-    stop("norm_elt must be set")
+  ## ---------------------------------------------------------------
+  ## 1. Validate inputs
+  ## ---------------------------------------------------------------
+  if (is.null(norm_elt)) {
+    stop("`norm_elt` must be provided.")
   }
-  if(is.null(raw_elt)){
-    stop("raw_elt must be set")
+  if (is.null(raw_elt)) {
+    stop("`raw_elt` must be provided.")
   }
 
-  ##### HERE THE CHECKPOINT NEEDS TO BE TO IDENTIFY THE OBJECT TYPE FOR THE NORM AND RAW EXPRESSION DATA - probably not needed.
-  # if (!is.element(norm_elt, names(object@assayData))) {
-  #   stop(paste(norm_elt, "is not an element in assaysData slot"))
-  # }
-  # if (!is.element(raw_elt, names(object@assayData))) {
-  #   stop(paste(raw_elt, "is not an element in assaysData slot"))
-  # }
+  ## Convert inputs to numeric matrices
+  norm <- tryCatch(as.matrix(norm_elt), error = function(e)
+    stop("`norm_elt` cannot be converted to a numeric matrix.")
+  )
 
-  # > object@assayData$q_norm %>% class()
-  # [1] "matrix" "array"
-  # exprs is the same
+  raw <- tryCatch(as.matrix(raw_elt), error = function(e)
+    stop("`raw_elt` cannot be converted to a numeric matrix.")
+  )
 
-  # prep components: - CHANGED TO ONLY HAVE only the MATRIX CONVERSION - checkpint or not?
-  norm <- as.matrix(norm_elt)
-  raw <- as.matrix( raw_elt)
+  ## Validate rownames
+  if (is.null(rownames(norm)) || is.null(rownames(raw))) {
+    stop("Both `norm_elt` and `raw_elt` must have gene rownames.")
+  }
 
-  # estimate background
-  bg <- calc_background(raw, norm)
-  # bg <- derive_GeoMx_background(norm = norm,
-  #                               # access the probe pool information from the feature metadata
-  #                               probepool = Biobase::fData(object)$Module, # a character vector the length of the normalised matrix
-  #                               # access the names of the negative control probes
-  #                               ### TargetName IS GENE NAME, character vector and
-  #                               ### just extracting out of them what is called negative in the negative section of the fData.
-  #                               # so negnames is also a character vector
-  #                               negnames = Biobase::fData(object)$TargetName[Biobase::fData(object)$Negative])
+  ## ---------------------------------------------------------------
+  ## 2. Estimate background – using your BulkDecon calc_background()
+  ## ---------------------------------------------------------------
+  bg <- calc_background(raw = raw, norm = norm)
 
-  # run bulkdecon:
-  result <- bulkdecon(norm = norm,
-                         bg = bg,
-                         X = X,
-                         raw = raw,
-                         wts = wts,
-                         resid_thresh = resid_thresh,
-                         lower_thresh = lower_thresh,
-                         align_genes = align_genes,
-                         is_pure_tumor = is_pure_tumor,
-                         n_tumor_clusters = n_tumor_clusters,
-                         cell_counts = cell_counts,
-                         cellmerges = cellmerges,
-                         maxit = maxit)
+  ## ---------------------------------------------------------------
+  ## 3. Run BulkDecon core algorithm
+  ## ---------------------------------------------------------------
+  result <- bulkdecon(
+    norm = norm,
+    bg = bg,
+    X = X,
+    raw = raw,
+    wts = wts,
+    resid_thresh = resid_thresh,
+    lower_thresh = lower_thresh,
+    align_genes = align_genes,
+    is_pure_tumor = is_pure_tumor,
+    n_tumor_clusters = n_tumor_clusters,
+    cell_counts = cell_counts,
+    cellmerges = cellmerges,
+    maxit = maxit
+  )
+
   return(result)
 }
+

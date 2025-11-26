@@ -1,10 +1,33 @@
 Package: BulkDecon
 Title: An Accurate Bulk RNA-Seq Deconvolution Tool Using Log-Normal Regression
-Version: 0.0.1.9000
+Version: 0.0.2.0000
 Authors@R: 
-    person("Shanika", "Amarasinghe", , "shani.amarasinghe@monash.edu", role = c("aut", "cre"))
-Description: BulkDecon is a toolkit incorporating algorithmic advancements and data resources to make deconvolution of bulk RNA-Seq data more accurate and widely applicable.
-License: `use_mit_license()`,
+    person("Shani", "Amarasighe", , "shani.amarasinghe@monash.edu", role = c("aut", "cre", "cph"))
+Description: BulkDecon is a toolkit incorporating algorithmic advancements and data 
+    resources to make deconvolution of bulk RNA-Seq data more accurate and widely applicable.
+License: MIT + file LICENSE
 Encoding: UTF-8
+LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
+Imports:
+    stats,
+    utils,
+    methods,
+    dplyr,
+    tidyr,
+    tibble,
+    matrixStats,
+    distr,
+    logNormReg,
+    ggplot2,
+    scales,
+    reshape2
+Suggests:
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0),
+    patchwork,
+    cowplot
+VignetteBuilder: knitr
+Config/testthat/edition: 3

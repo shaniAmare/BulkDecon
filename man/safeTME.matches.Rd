@@ -3,17 +3,14 @@
 \docType{data}
 \name{safeTME.matches}
 \alias{safeTME.matches}
-\title{Mapping from granularly-defined cell populations to broaded cell populations}
+\title{Mapping from granular cell populations to broader cell populations}
 \format{
-A list. Each element of the list contains the granular cell types
-that roll up
-to a single coarse cell type.
-}
-\usage{
-safeTME.matches
+A named list. Each list element corresponds to a broad cell
+population, whose value is a character vector of granular sub-populations.
 }
 \description{
-Mapping from granularly-defined cell populations to broaded cell populations,
-for use by the convertCellTypes function.
+This dataset defines how fine-grained single-cell populations map to
+broader immune or stromal categories. It is used internally by
+\code{convertCellTypes()} to aggregate cell types.
 }
 \keyword{datasets}
