@@ -10,37 +10,30 @@
 #' sample-specific background for bulk RNA-seq or GeoMx-style data.
 #'
 #' \itemize{
-#'   \item \code{calc_bgindex}: Internal function to compute background-stability
-#'         indices (SEG-like) via Normal/Gamma mixture modelling.
-#'   \item \code{calc_background}: Uses `calc_bgindex` to identify robust background
-#'         genes and estimate sample-wise background levels from a normalized matrix.
+#'   \item \code{calc_bgindex}: Compute background-stability indices via
+#'         Normal/Gamma mixture modelling.
+#'   \item \code{calc_background}: Estimate robust background levels
+#'         across samples.
 #' }
 #'
 #' @section Functions to set up deconvolution:
 #' \itemize{
-#'   \item \code{collapseCellTypes}: Merge granular cell types into broader groups.
+#'   \item \code{collapseCellTypes}: Merge granular cell types.
 #'   \item \code{download_profile_matrix}: Download or load profile matrices.
-#'   \item \code{safeTME}: Dataset providing immune cell expression profiles for
-#'         tumor/immune deconvolution.
+#'   \item \code{safeTME}: Immune profile reference.
 #' }
 #'
 #' @section Deconvolution functions:
 #' \itemize{
-#'   \item \code{bulkdecon}: Core function performing bulk RNA-seq deconvolution
-#'         using supplied cell-type signatures.
-#'   \item \code{reverseDecon}: Fits a reverse model (expression ~ cell
-#'         proportions) to inspect gene-level dependence on cellular composition
-#'         and compute de-mixed residuals.
+#'   \item \code{bulkdecon}: Perform bulk RNA-seq deconvolution.
+#'   \item \code{reverseDecon}: Fit reverse model and calculate residuals.
 #' }
 #'
 #' @section Plotting functions:
 #' \itemize{
-#'   \item \code{florets}: Visualise cell proportions using cockscomb-style plots
-#'         positioned in 2D space.
-#'   \item \code{TIL_barplot}: Plot estimated tumor infiltrating lymphocyte (TIL)
-#'         abundances from a SafeTME-derived deconvolution.
+#'   \item \code{florets}: Visualise cell proportions.
+#'   \item \code{TIL_barplot}: Tumour-infiltrating lymphocyte barplots.
 #' }
 #'
-#' @docType package
-#' @name BulkDecon
-NULL
+#' @keywords internal
+"_PACKAGE"
