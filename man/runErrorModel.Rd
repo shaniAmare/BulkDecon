@@ -4,7 +4,7 @@
 \alias{runErrorModel}
 \title{Estimate gene-specific standard deviations for bulk RNA-seq}
 \usage{
-runErrorModel(counts, method)
+runErrorModel(counts, platform = "general")
 }
 \arguments{
 \item{counts}{Numeric vector or matrix of raw or normalized bulk RNA-seq counts.}

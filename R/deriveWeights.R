@@ -11,51 +11,25 @@
 #' @return A matrix of weights (genes × samples).
 #'
 #' @export
-deriveWeights <- function(norm, raw = NULL, error.model = "quantile") {
-  # ----------------------------
-  # Input checks
-  # ----------------------------
-  if (is.null(raw)) {
-    stop("Raw counts must be provided for weight estimation.")
+deriveWeights <- function(norm, raw = NULL, error.model = "bulk") {
+
+  # get tech SDs if raw data provided:
+  if (length(raw) == 0) {
+    sds.tech <- matrix(0.1, nrow(raw), ncol(raw), dimnames = dimnames(raw))
+  }
+  if (length(raw) > 0) {
+    sds.tech <- runErrorModel(
+      counts = raw,
+      platform = error.model
+    )
   }
 
-  if (!is.matrix(raw)) {
-    stop("raw must be a matrix (genes x samples).")
-  }
+  # if the mean.resid.sd vector (which defines genes' biological SD) is in
+  # the environment, get biological noise:
+  sds.bio <- matrix(0.1, nrow(raw), ncol(raw), dimnames = dimnames(raw))
 
-  if (!identical(dim(norm), dim(raw))) {
-    stop("norm and raw must have identical dimensions.")
-  }
-
-  # ----------------------------
-  # Estimate technical variance
-  # ----------------------------
-
-  message("Estimating gene weights from bulk RNA-seq variance...")
-
-  sds.tech <- runErrorModel(
-    counts = raw,
-    method = error.model
-  )
-
-  # ----------------------------
-  # Stabilise SDs
-  # ----------------------------
-
-  sds.tech[!is.finite(sds.tech)] <- median(sds.tech, na.rm = TRUE)
-  sds.tech[sds.tech < 0.05] <- 0.05
-  sds.tech[sds.tech > 10]   <- 10
-
-  # ----------------------------
-  # Compute weights
-  # ----------------------------
-
+  # define total SD, and invert to get weights
+  sds.tot <- sqrt(sds.tech^2 + sds.bio^2)
   wts <- 1 / sds.tech
-
-  # Guard against zero / infinite weights
-  wts[!is.finite(wts)] <- min(wts[is.finite(wts)], na.rm = TRUE)
-
-  dimnames(wts) <- dimnames(norm)
-
   return(wts)
 }

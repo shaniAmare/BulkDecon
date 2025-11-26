@@ -4,7 +4,7 @@
 \alias{deriveWeights}
 \title{Derive Gene Weights from Bulk RNA-seq Data}
 \usage{
-deriveWeights(norm, raw = NULL, error.model = "quantile")
+deriveWeights(norm, raw = NULL, error.model = "bulk")
 }
 \arguments{
 \item{norm}{Normalized expression matrix (genes x samples)}
