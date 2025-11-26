@@ -46,44 +46,42 @@ algorithm2 <- function(Y, X, bg = 0, weights = NULL,
                        resid_thresh = 3, lower_thresh = 0.5,
                        align_genes = TRUE, maxit = 1000) {
 
-  ## 1. Align genes if requested
+  # align genes:
   if (align_genes) {
     sharedgenes <- intersect(rownames(X), rownames(Y))
-    Y <- Y[sharedgenes, , drop = FALSE]
-    X <- X[sharedgenes, , drop = FALSE]
-
+    Y <- Y[sharedgenes, ]
+    X <- X[sharedgenes, ]
     if (is.matrix(bg)) {
-      bg <- bg[sharedgenes, , drop = FALSE]
+      bg <- bg[sharedgenes, ]
     }
     if (is.matrix(weights)) {
-      weights <- weights[sharedgenes, , drop = FALSE]
+      weights <- weights[sharedgenes, ]
     }
   }
 
-  ## 2. Format the data
+  # format the data nicely:
   tidied <- tidy_X_and_Y(X, Y)
   X <- tidied$X
   Y <- tidied$Y
-
-  ## convert bg to matrix if needed
-  if (is.vector(bg) && length(bg) > 0) {
+  if ((length(bg) > 0) & (is.vector(bg))) {
     bg <- matrix(bg, nrow = length(bg))
   }
 
-  ## 3. Select epsilon
+  # select an epsilon (lowest non-zero value to use)
   epsilon <- min(Y[(Y > 0) & !is.na(Y)])
 
-  ## 4. Initial run to detect outliers
+
+  # initial run to look for outliers:
   out0 <- deconLNR(
     Y = Y, X = X, bg = bg, weights = weights, epsilon = epsilon,
     maxit = maxit
   )
-
+  # also get yhat and resids:
   out0$yhat <- X %*% out0$beta + bg
   out0$resids <- log2(pmax(Y, lower_thresh)) -
     log2(pmax(out0$yhat, lower_thresh))
 
-  ## 5. Flag outlier genes
+  # ID bad genes:
   outliers <- flagOutliers(
     Y = Y,
     yhat = out0$yhat,
@@ -92,9 +90,10 @@ algorithm2 <- function(Y, X, bg = 0, weights = NULL,
     resid_thresh = resid_thresh
   )
 
-  ## 6. Remove outliers & rerun
+  # remove outlier data points:
   Y.nooutliers <- replace(Y, outliers, NA)
 
+  # re-run decon without outliers:
   out <- deconLNR(
     Y = Y.nooutliers,
     X = X,
@@ -102,27 +101,22 @@ algorithm2 <- function(Y, X, bg = 0, weights = NULL,
     weights = weights,
     epsilon = epsilon
   )
-
   out$yhat <- X %*% out$beta + bg
   out$resids <- log2(pmax(Y.nooutliers, 0.5)) - log2(pmax(out$yhat, 0.5))
 
-  ## 7. Compute p-values
+  # compute p-values
   tempbeta <- out$beta
-  tempse <- tempbeta * NA
-  tempt <- tempbeta * NA
-  tempp <- tempbeta * NA
-
+  tempse <- tempp <- tempt <- tempbeta * NA
   for (i in seq_len(ncol(tempse))) {
     tempse[, i] <- suppressWarnings(sqrt(diag(out$sigmas[, , i])))
   }
-
-  tempt <- tempbeta / tempse
+  tempt <- (tempbeta / tempse)
   tempp <- 2 * (1 - stats::pnorm(tempt))
-
   out$p <- tempp
   out$t <- tempt
   out$se <- tempse
 
+  # structure of output: beta, hessians, yhat, resids
   return(out)
 }
 
