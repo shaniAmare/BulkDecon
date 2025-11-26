@@ -40,8 +40,6 @@ devtools::install_github("shaniAmare/BulkDecon", force = TRUE)
   <li>Custom plotting utilities (e.g., TIL barplots, floret diagrams)</li>
 </ul>
 
-<p>A complete vignette and workflow examples will be added once function development is finalized.</p>
-
 <hr>
 
 <h2>📄 License</h2>
