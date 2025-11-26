@@ -138,14 +138,41 @@ algorithm2 <- function(Y, X, bg = 0, weights = NULL,
 #' @keywords internal
 #' @noRd
 tidy_X_and_Y <- function(X, Y) {
-    
+
+  # format as matrices:
+  Ynew <- Y
+  if (is.vector(Y)) {
+    Ynew <- matrix(Y, nrow = length(Y), dimnames = list(names(Y), "y"))
+  }
+  Xnew <- X
+
+  # check alignment:
+  if (!identical(rownames(Y), rownames(X))) {
+    warning("Rows (genes) of X and Y are mis-aligned.")
+  }
+  out <- list(X = Xnew, Y = Ynew)
+}
+
+#' Function to format Y, X inputs for decon
+#'
+#' Takes user-supplied X and Y, checks for accuracy, aligns by dimnames, adds
+#' dimnames if missing
+#'
+#' @param X X matrix
+#' @param Y Data matrix
+#' @return X and Y, both formatted as matrices, with full dimnames and aligned
+#' to each other by dimname
+#' @keywords internal
+#' @noRd
+tidy_X_and_Y <- function(X, Y) {
+
     # format as matrices:
     Ynew <- Y
     if (is.vector(Y)) {
         Ynew <- matrix(Y, nrow = length(Y), dimnames = list(names(Y), "y"))
     }
     Xnew <- X
-    
+
     # check alignment:
     if (!identical(rownames(Y), rownames(X))) {
         warning("Rows (genes) of X and Y are mis-aligned.")
