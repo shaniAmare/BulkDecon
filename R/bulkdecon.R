@@ -81,7 +81,7 @@ bulkdecon <- function(norm,
 
   # load bundled safeTME if X not supplied
   if (length(X) == 0) {
-    utils::data("safeTME", package = "BulkDecon-package", envir = environment())
+    utils::data("safeTME", package = "BulkDecon", envir = environment())
     X <- safeTME
   }
 
@@ -94,8 +94,8 @@ bulkdecon <- function(norm,
 
   # calculate weights (if raw provided)
   if (length(raw) > 0) {
-    weight.by.TIL.resid.sd <-
-      length(intersect(colnames(X), colnames(safeTME))) > 10
+    weight.by.TIL.resid.sd <- ncol(X) > 10
+      #length(intersect(colnames(X), colnames(safeTME))) > 10
 
     wts <- deriveWeights(
       norm,

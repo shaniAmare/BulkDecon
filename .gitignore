@@ -1,4 +1,8 @@
+# mac
+.DS_Store
+# R build stuff
 .Rproj.user
+# R build stuff
 .Rhistory
 .RData
 .Ruserdata
