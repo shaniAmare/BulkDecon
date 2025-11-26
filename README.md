@@ -46,7 +46,7 @@ devtools::install_github("shaniAmare/BulkDecon", force = TRUE)
 
 <h2>📄 License</h2>
 
-<p>MIT License (or update with your chosen license).</p>
+<p>MIT</p>
 
 <hr>
 
