@@ -20,99 +20,80 @@
 #'   \item{sigmas}{Array of covariance matrices for each sample}
 #'
 #' @export
-deconLNR <- function(Y, X, bg = 0, weights = NULL, epsilon = NULL, maxit = 1000) {
 
-  # -------------------------------
-  # Input formatting
-  # -------------------------------
+deconLNR <- function(Y, X, bg = 0, weights = NULL, epsilon = NULL,
+                     maxit = 1000) {
+  if (length(weights) == 0) {
+    weights <- replace(Y, TRUE, 1)
+  }
   if (is.vector(Y)) {
-    Y <- matrix(Y, ncol = 1)
-    colnames(Y) <- "Sample1"
+    Y <- matrix(Y, nrow = length(Y))
   }
-  if (!is.matrix(Y)) Y <- as.matrix(Y)
-  if (!is.matrix(X)) X <- as.matrix(X)
-
-  if (nrow(Y) != nrow(X)) {
-    stop("Y and X must have the same number of genes (rows).")
-  }
-
-  # background handling
   if (length(bg) == 1) {
     bg <- matrix(bg, nrow(Y), ncol(Y))
   }
-
-  # weights
-  if (is.null(weights)) {
-    weights <- matrix(1, nrow(Y), ncol(Y))
+  # choose "epsilon": a very small non-zero number to make fits well-behaved
+  if (length(epsilon) == 0) {
+    epsilon <- min(replace(Y, (Y == 0) & !is.na(Y), NA), na.rm = TRUE)
   }
 
-  # choose epsilon
-  if (is.null(epsilon)) {
-    epsilon <- apply(Y, 2, function(y) {
-      min(y[y > 0], na.rm = TRUE)
-    })
-  }
+  # matrix-like data for apply:
+  mat <- rbind(Y, bg, weights)
+  # fn to apply:
+  fn <- function(zz) {
+    # break into y, b, w:
+    y <- zz[seq_len((length(zz)) / 3)]
+    b <- zz[seq_len((length(zz)) / 3) + (length(zz) / 3)]
+    wts <- zz[seq_len((length(zz)) / 3) + (length(zz) / 3) * 2]
 
-  # -------------------------------
-  # Function applied per sample
-  # -------------------------------
-  decon_single <- function(y, b, wts, eps) {
+    # remove NA data:
+    use <- !is.na(y)
+    y <- y[use]
+    b <- b[use]
+    Xtemp <- X[use, , drop = FALSE]
+    wts <- wts[use]
 
-    # remove NA rows
-    keep <- !is.na(y)
-    y <- y[keep]
-    b <- b[keep]
-    wts <- wts[keep]
-    Xs <- X[keep, , drop = FALSE]
+    init <- rep(mean(y) / (mean(X) * ncol(X)), ncol(X))
+    names(init) <- colnames(X)
 
-    # initial values
-    init <- rep(mean(y) / (mean(Xs) * ncol(Xs)), ncol(Xs))
-    names(init) <- colnames(Xs)
-
-    # fit log-normal model
-    fit <- logNormReg::lognlm(
-      pmax(y, eps) ~ b + Xs - 1,
-      lik = FALSE,
-      weights = wts,
-      start = c(1, init),
-      method = "L-BFGS-B",
-      lower = c(1, rep(0, ncol(Xs))),
-      upper = c(10, rep(Inf, ncol(Xs))),
-      opt = "optim",
-      control = list(maxit = maxit)
+    # run lognlm:
+    fit <- logNormReg::lognlm(pmax(y, epsilon) ~ b + Xtemp - 1,
+                              lik = FALSE,
+                              weights = wts,
+                              start = c(1, init),
+                              method = "L-BFGS-B",
+                              lower = c(1, rep(0, ncol(Xtemp))),
+                              upper = c(1, rep(Inf, ncol(Xtemp))),
+                              opt = "optim",
+                              control = list(maxit = maxit)
     )
-
-    list(
+    fnout <- list(
       beta = fit$coefficients[-1],
       sigma = solve(fit$hessian)[-1, -1]
     )
+    return(fnout)
+  }
+  # apply across all observations:
+  fnlist <- apply(mat, 2, fn)
+  # extract beta and sigmas:
+  getbeta <- function(zz) {
+    return(zz$beta)
+  }
+  getsigma <- function(zz) {
+    return(zz$sigma)
   }
 
-  # -------------------------------
-  # Apply across samples
-  # -------------------------------
-  fnlist <- lapply(seq_len(ncol(Y)), function(i) {
-    decon_single(
-      y = Y[, i],
-      b = bg[, i],
-      wts = weights[, i],
-      eps = epsilon[i]
-    )
-  })
-
-  # extract beta and sigma
-  beta <- sapply(fnlist, function(z) z$beta)
+  beta <- vapply(X = fnlist, FUN = getbeta, FUN.VALUE = numeric(ncol(X)))
   rownames(beta) <- colnames(X)
-  colnames(beta) <- colnames(Y)
-
-  sigmas <- array(
-    data = unlist(lapply(fnlist, function(z) z$sigma)),
-    dim = c(ncol(X), ncol(X), ncol(Y)),
-    dimnames = list(colnames(X), colnames(X), colnames(Y))
+  sigmas <- array(vapply(
+    X = fnlist,
+    FUN = getsigma,
+    FUN.VALUE = numeric(ncol(X)^2)
+  ),
+  dim = c(ncol(X), ncol(X), ncol(Y)),
+  dimnames = list(colnames(X), colnames(X), colnames(Y))
   )
 
-  list(
-    beta = pmax(beta, 0),
-    sigmas = sigmas
-  )
+  out <- list(beta = pmax(beta, 0), sigmas = sigmas)
+  return(out)
 }
