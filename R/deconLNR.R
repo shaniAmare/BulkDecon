@@ -20,7 +20,6 @@
 #'   \item{sigmas}{Array of covariance matrices for each sample}
 #'
 #' @export
-
 deconLNR <- function(Y, X, bg = 0, weights = NULL, epsilon = NULL,
                      maxit = 1000) {
   if (length(weights) == 0) {

@@ -24,25 +24,17 @@
 #' @export
 flagOutliers <- function(Y, yhat, resids, wts, resid_thresh = 3) {
 
-  # 1. Weighted residuals
+  # get weighted resids:
   if (length(wts) == 0) {
     wres <- resids
-  } else {
-    # recycle weights correctly: wts is usually a gene- or sample-level vector
+  }
+  if (length(wts) > 0) {
     wres <- resids * wts
   }
 
-  # 2. Flag outlier genes:
-  # a gene is flagged if ANY sample has |weighted residual| > threshold
-  outlier_genes <- apply(abs(wres) > resid_thresh, 1, any)
-
-  # 3. Flag outlier data points (gene × sample)
-  outlier_data_points <- abs(wres) > resid_thresh
-
-  # 4. Return structured output
-  return(list(
-    outlier_genes = outlier_genes,
-    outlier_data_points = outlier_data_points,
-    weighted_residuals = wres
-  ))
+  # flag bad genes:
+  outlier_genes <- c() # <-- this line makes it so no outlier genes are filtered
+  # flag bad data points: (not doing anything for now)
+  outlier_data_points <- abs(resids) > resid_thresh
+  return(outlier_data_points)
 }

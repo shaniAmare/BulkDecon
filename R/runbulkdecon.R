@@ -81,7 +81,7 @@ runbulkdecon <- function(
   ## ---------------------------------------------------------------
   ## 2. Estimate background – using your BulkDecon calc_background()
   ## ---------------------------------------------------------------
-  bg <- calc_background(raw = raw, norm = norm)
+  bg <- BulkDecon::calc_background(raw = raw, norm = norm)
 
   ## ---------------------------------------------------------------
   ## 3. Run BulkDecon core algorithm

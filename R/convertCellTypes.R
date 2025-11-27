@@ -39,65 +39,44 @@
 #' }
 #'
 #' @export
+
 convertCellTypes <- function(beta, matching, stat = sum,
                              na.rm = FALSE, sigma = NULL) {
-
-  # ---------------- Input checks ------------------------------------------
-  beta <- as.matrix(beta)
-
-  if (!is.list(matching) || is.null(names(matching))) {
-    stop("`matching` must be a *named* list of cell type groups.")
-  }
-
-  if (!all(unlist(matching) %in% rownames(beta))) {
-    missing <- setdiff(unlist(matching), rownames(beta))
-    stop("The following cell types in `matching` are missing in beta: ",
-         paste(missing, collapse = ", "))
-  }
-
-  # ---------------- Build transformation matrix A -------------------------
-  A <- matrix(
-    0,
-    nrow = length(matching),
-    ncol = nrow(beta),
-    dimnames = list(names(matching), rownames(beta))
+  # format matching list as a matrix to take a linear combination of beta:
+  A <- matrix(0, length(matching), nrow(beta),
+              dimnames = list(names(matching), rownames(beta))
   )
-
-  for (grp in names(matching)) {
-    A[grp, matching[[grp]]] <- 1
+  for (name in names(matching)) {
+    cellnames <- matching[[name]]
+    A[name, cellnames] <- 1
   }
 
-  # ---------------- Apply transformation to beta --------------------------
+  # apply A transformation to beta:
   beta2 <- A %*% beta
 
-  # ---------------- If no sigma, return beta2 only ------------------------
-  if (is.null(sigma)) {
-    return(beta2)
-  }
-
-  # ---------------- Transform sigma if provided ---------------------------
-  if (length(dim(sigma)) == 2) {
-    # Single covariance matrix
-    sigma2 <- A %*% sigma %*% t(A)
-  }
-  else if (length(dim(sigma)) == 3) {
-    # Covariance array per sample
-    nsamp <- dim(sigma)[3]
-    sigma2 <- array(
-      NA,
-      dim = c(nrow(A), nrow(A), nsamp),
-      dimnames = list(rownames(A), rownames(A), dimnames(sigma)[[3]])
-    )
-    for (i in seq_len(nsamp)) {
-      sigma2[, , i] <- A %*%
-        sigma[, , i, drop = FALSE] %*%
-        t(A)
+  # if Sigma provided, get vcov of beta2:
+  if (length(sigma) > 0) {
+    if (length(dim(sigma)) == 2) {
+      sigma2 <- A %*% sigma %*% t(A)
+    }
+    if (length(dim(sigma)) == 3) {
+      sigma2 <- array(NA,
+                      dim = c(nrow(A), nrow(A), dim(sigma)[3]),
+                      dimnames = list(rownames(A), rownames(A), dimnames(sigma)[[3]])
+      )
+      for (i in seq_len(dim(sigma)[3])) {
+        sigma2[, , i] <- A %*% sigma[, , i] %*% t(A)
+      }
     }
   }
-  else {
-    stop("`sigma` must be either a 2D covariance matrix or a 3D array.")
-  }
 
-  # ---------------- Return beta and sigma ---------------------------------
-  return(list(beta = beta2, sigma = sigma2))
+  # if no Sigma, just return transformed beta:
+  if (length(sigma) == 0) {
+    return(beta2)
+  }
+  # if there is a sigma, return beta and the sigma:
+  if (length(sigma) > 0) {
+    out <- list(beta = beta2, sigma = sigma2)
+    return(out)
+  }
 }
